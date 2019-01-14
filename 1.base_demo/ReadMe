@@ -1,0 +1,3 @@
+1.直接执行make指令可以生成hello.ko文件
+2.执行sudo insmod hello.ko 可以加载模块,执行lsmod | grep hello 可以看到安装的模块
+3.执行sudo rmmod hello可以卸载模块
