@@ -1,0 +1,1 @@
+cmd_/home/administrator/Projects/develop/training/kernel/drivers/globalfifo/ch12/globalfifo-dev.mod := { echo  /home/administrator/Projects/develop/training/kernel/drivers/globalfifo/ch12/globalfifo-dev.o;  echo; } > /home/administrator/Projects/develop/training/kernel/drivers/globalfifo/ch12/globalfifo-dev.mod
