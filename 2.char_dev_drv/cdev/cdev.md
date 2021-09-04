@@ -386,7 +386,7 @@ unsigned int iminor(struct inode *inode);
 int (*open)(struct inode *inoed, struct file *filep);
 ```
 
-其中 inode 参数在 i_cdev 字段中包含了我们所需要的信息，即我们先前设置的 cdev 结构体
+其中 inode 参数在 i_cdev 字段中包含了我们所需要的信息，即**我们先前设置的 cdev 结构体**
 
 
 
@@ -397,6 +397,8 @@ container_of(pointer, container_type, container_field);  // 定义在<linux/kern
 ```
 
 该函数根据指定结构体(container_type)和其内部的成员(container_field)，计算入参(pointer)对应的结构体(container_type)实例入口，这里的入参(pointer)也是结构体(container_type)的成员(container_field)
+
+当我们创建一个自己使用的结构体时，如果在结构体内部放了 cdev，则可以根据结构体内部放的 cdev设备 (open函数中的 inode->i_cdev) 计算出我们自己创建的结构体的入口
 
 
 
