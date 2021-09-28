@@ -174,6 +174,8 @@ struct device_driver {
 
 ### **总线 bus_type**
 
+作为 **device_driver** 的成员
+
 ```c
 struct bus_type {
 	const char		*name;
@@ -218,7 +220,7 @@ struct bus_type {
 
 
 
-## 2. 设备注册和注销
+## 2. 驱动注册和注销
 
 初始化过程中可以完全按照cdev的步骤来，但也可以替换为如下的方法
 
@@ -276,7 +278,7 @@ static inline void platform_set_drvdata(struct platform_device *pdev,	void *data
 
 
 
-## 3. 添加设备
+## 3. 设备注册到内核
 
 对于paltform_device的定义通常在BSP板文件中实现，在板文件中，将platform_device归纳为一个数组，最终通过platform_add_devices()函数统一注册。platform_add_devices()函数可以将平台设备添加到系统中，该函数的内部调用了platform_device_register()函数以注册单个的平台设备，这个函数原型为：
 
@@ -307,9 +309,57 @@ static struct platform_device globalfifo_device = {
 
 
 
+## 4. 设备和总线的绑定
+
+首先声明驱动侧 **platform_driver**、**device_driver**、**bus_type** 的关系： platform_driver.device_driver->**bus_type** ，另有设备侧 **platform_device**、 **device**、**bus_type** 的关系： platform_device.device->**bus_type**。
+
+**驱动**在注册到内核时，通过接口 **module_platform_driver** 向下搜索可以发现注册最终发生在接口 **__platform_driver_register** 中，在该接口中会将结构体 **platform_bus_type** 赋给驱动的 bus，在 **platform_bus_type** 中保存着设备与驱动的匹配接口，设备与驱动的匹配通过 bus_type 结构体中的 match 接口 **paltform_match** 完成。
+
+**设备**在注册到内核时，通过接口 **platform_add_devices** 完成，通过接口 **platform_add_devices** 向下搜索可以发现最终在接口 **platform_device_add** 中，将结构体 **platform_bus_type** 赋值给设备结构体。如果是从设备树解析得到 paltfrom 设备的话会调用 **of_platform_device_create_pdata** 接口生成 paltform 设备，同样会将 **platform_bus_type** 赋值给设备结构体。
+
+综上，驱动和设备使用的是同一个 bus_type 结构体，或者说，所有的 platform 驱动和设备都是使用结构体 **platform_bus_type**。
 
 
-## 4. platform设备资源和数据
+
+**platform_bus_type** 中注册的接口 platform_match 负责完成总线和设备的匹配：
+
+```c
+static int platform_match(struct device *dev, struct device_driver *drv)
+{
+    struct platform_device *pdev = to_platform_device(dev);
+    struct platform_driver *pdrv = to_platform_driver(drv);
+
+    /* When driver_override is set, only bind to the matching driver */
+    if (pdev->driver_override)
+        return !strcmp(pdev->driver_override, drv->name);
+
+    /* Attempt an OF style match first */
+    if (of_driver_match_device(dev, drv))
+        return 1;
+
+    /* Then try ACPI style match */
+    if (acpi_driver_match_device(dev, drv))
+        return 1;
+
+    /* Then try to match against the id table */
+    if (pdrv->id_table)
+        return platform_match_id(pdrv->id_table, pdev) != NULL;
+
+    /* fall-back to driver name match */
+    return (strcmp(pdev->name, drv->name) == 0);
+}
+```
+
+从以上代码中可以看出，匹配 paltform_device 和 paltform_driver 有4种可能性：
+
+1. 基于设备树风格的匹配
+2. 基于ACPI风格的匹配
+3. 匹配ID表（即paltform_drivce设备名是否出现在platform_driver的ID表内）
+4. 匹配platform_device设备名和驱动的名字
+
+
+
+## 5. platform设备资源和数据
 
 ```c
 struct resource{
@@ -361,6 +411,6 @@ static inline void *dev_get_platdata(const struct device *dev)
 
 
 
-## 5. demo
+## 6. demo
 
 关注 globalfifo/ch12/globalfifo.c ，来自宋宝华的《Linux设备驱动开发详解》中的demo

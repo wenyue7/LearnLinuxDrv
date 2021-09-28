@@ -201,7 +201,7 @@ my_cdev->owner = THIS_MODULE;  // 所有者
 my_cdev->ops = &my_fops;
 ```
 
-**注册到内核** 
+**注册设备到内核** 
 
 ```c
 int cdev_add(struct cdev *dev, dev_t num, unsigned int count);
