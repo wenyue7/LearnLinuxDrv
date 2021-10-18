@@ -658,7 +658,7 @@ of_alias_scan() 函数先是处理设备树chosen节点中的"stdout-path"或者
 
 ![img](device_tree.assets/2120938-20210626073039172-236790166-20210928150139641.png)
 
-此后，内核就可以根据`device_node`来创建设备。
+此后，内核就可以根据 device_node 来创建设备。
 
 
 
