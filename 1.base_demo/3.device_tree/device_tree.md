@@ -1046,3 +1046,333 @@ int of_device_add(struct platform_device *ofdev){
 将当前platform_device中的struct device成员注册到系统device中，并为其在用户空间创建相应的访问节点。
 这一步会调用platform_match，因此最终也会执行设备树的match，以及probe。
 
+
+
+## 4. 设备树语法
+
+### 4.1 节点格式
+
+```c
+label: node-name@unit-address
+
+其中：
+label：标号
+node-name：节点名字
+unit-address：单元地址
+label 是标号，可以省略。 label 的作用是为了方便地引用 node。比如：
+//dts-v1
+/{
+  uart0: uart@fe001000{
+    compatible="ns16550";
+    reg=<0xfe001000 0x100>;
+  };
+};
+
+可以使用如下两种方法修改uart@fe001000这个node:
+// 在根结点之外使用 label 引用 node：
+&uart0{
+  status="disabled";
+};
+
+// 或在根节点之外使用全路径：
+&{/uart@fe001000}{
+  status="disabled";
+}
+// 这里的含义为修改 uart0 的成员: status
+```
+
+
+
+### 4.2 属性格式
+
+简单地说， properties 就是“name=value”， value 有多种取值方式。 示例：
+一个32位的数据，用尖括号包围起来，如
+
+```c
+interrupts = <17 0xc>; 
+```
+
+一个64位数据（使用2个32位数据表示），用尖括号包围起来，如：
+
+```c
+clock-frequency = <0x00000001 0x00000000>; 
+```
+
+有结束符的字符串，用双引号包围起来，如：
+
+```c
+compatible = "simple-bus"; 
+```
+
+字节序列，用中括号包围起来，如：
+
+```c
+local-mac-address = [00 00 12 34 56 78]; // 每个byte使用2个16进制数来表示 
+local-mac-address = [000012345678];      // 每个byte使用2个16进制数来表示 
+```
+
+可以是各种值的组合，用逗号隔开，如：
+
+```c
+compatible = "ns16550", "ns8250"; 
+example = <0xf00f0000 19>, "a strange property format";   
+```
+
+### 4.3 一些标准属性
+
+（1） compatible 属性
+“compatible”表示“兼容”，对于某个LED，内核中可能有A、B、C三个驱动都支持它，那可以这样写：
+
+```c
+led { 
+    compatible = “A”, “B”, “C”; 
+};
+```
+
+内核启动时，就会为这个LED按这样的优先顺序为它找到驱动程序：A、B、C。
+
+（2）model 属性
+model属性与compatible属性有些类似，但是有差别。compatible属性是一个字符串列表，表示可以你的硬件兼容A、B、C等驱动；model用来准确地定义这个硬件是什么。比如根节点中可以这样写：
+
+```c
+/ { 
+    compatible = "samsung,smdk2440", "samsung,mini2440"; 
+    model = "jz2440_v3"; 
+};
+```
+
+它表示这个单板，可以兼容内核中的“smdk2440”，也兼容“mini2440”。从compatible属性中可以知道它兼容哪些板，但是它到底是什么板？用model属性来明确。
+
+（3）status 属性
+status 属性看名字就知道是和设备状态有关的， status 属性值也是字符串，字符串是设备的状态信息，可选的状态如下所示：
+
+| 值         | 描述                                                         |
+| ---------- | ------------------------------------------------------------ |
+| "okay"     | 表明设备是可操作的                                           |
+| "disabled" | 表明当前设备是不可操作的，但是在未来可以变为可操作的，比如热插拔设备插入之后。至于disabled的具体含义还是要看设备的绑定文档。 |
+| "fail"     | 表明设备不可操作，设备检测到了一系列的错误，而且设备也不大可能变得可操作。 |
+| "fail-sss" | 含义和"fail"相同，后面的sss部分是检测到的错误内容。          |
+
+4）#address-cells 和#size-cells 属性
+格式：
+
+```c
+address-cells：address要用多少个32位数来表示； 
+size-cells：size要用多少个32位数来表示。 
+```
+
+比如一段内存，怎么描述它的起始地址和大小？下例中，address-cells为1，所以reg中用1个数来表示地址，即用0x80000000来表示地址；size-cells为1，所以reg中用1个数来表示大小，即用0x20000000表示大小：
+
+```c
+/ { 
+address-cells = <1>;   
+size-cells = <1>; 
+    memory { 
+        reg = <0x80000000 0x20000000>; 
+    }; 
+}; 
+```
+
+（5）reg 属性
+reg的本意是register，用来表示寄存器地址。但是在设备树里，它可以用来描述一段空间。反正对于ARM系统，寄存器和内存是统一编址的，即访问寄存器时用某块地址，访问内存时用某块地址，在访问方法上没有区别。
+
+reg属性的值，是一系列的“address size”，用多少个32位的数来表示address和size，由其父节点的# address-cells、#size-cells决定。示例：
+
+```c
+/dts-v1/; 
+/ { 
+    # address-cells = <1>;   
+    # size-cells = <1>; 
+    memory { 
+        reg = <0x80000000 0x20000000>; 
+    }; 
+}; 
+```
+
+（7）name 属性
+过时了，建议不用。它的值是字符串，用来表示节点的名字。在跟platform_driver匹配时，优先级最低。compatible属性在匹配过程中，优先级最高。
+
+（8）device_type 属性
+过时了，建议不用。它的值是字符串，用来表示节点的类型。在跟platform_driver匹配时，优先级为中。compatible属性在匹配过程中，优先级最高。
+
+### 4.4 常用的节点
+
+（1）根节点
+用 / 标识根节点，如：
+
+```c
+/dts-v1/;   
+/ {   
+    model = "SMDK24440";   
+    compatible = "samsung,smdk2440"; 
+    
+    # address-cells = <1>;   
+    # size-cells = <1>;   
+};   
+```
+
+（2）CPU节点
+一般不需要我们设置，在 dtsi 文件中都定义好了，如：
+
+```c
+cpus {   
+    # address-cells = <1>;   
+    # size-cells = <0>;
+    cpu0: cpu@0 {   
+    	.......
+    }   
+};   
+```
+
+（3）memory 节点
+芯片厂家不可能事先确定你的板子使用多大的内存，所以 memory 节点需要板厂设置，比如：
+
+```c
+memory { 
+    reg = <0x80000000 0x20000000>; 
+}; 
+```
+
+（4）chosen 节点
+我们可以通过设备树文件给内核传入一些参数，这要在chosen节点中设置bootargs属性：
+
+```c
+chosen { 
+    bootargs = "noinitrd root=/dev/mtdblock4 rw init=/linuxrc console=ttySAC0,115200"; 
+};   
+```
+
+### 4.5 操作设备树的函数
+
+Linux 内核给我们提供了一系列的函数来获取设备树中的节点或者属性信息，这一系列的函数都有一个统一的前缀“of_”（“open firmware”即开放固件。 ），所以在很多资料里面也被叫做 OF 函数。
+
+#### 4.5.1 节点相关操作函数
+
+Linux 内核使用 device_node 结构体来描述一个节点，此结构体定义在文件 include/linux/of.h 中，定义如下：
+
+```c
+struct device_node {
+    const char *name;                       /* 节点名字 */
+    phandle phandle;
+    const char *full_name;                  /* 节点全名 */
+    struct fwnode_handle fwnode;
+
+    struct  property *properties;           /* 属性 */
+    struct  property *deadprops;            /* removed 属性 */
+    struct  device_node *parent;            /* 父节点 */
+    struct  device_node *child;             /* 子节点 */
+    struct  device_node *sibling;
+#if defined(CONFIG_OF_KOBJ)
+    struct  kobject kobj;
+#endif
+    unsigned long _flags;
+    void    *data;
+#if defined(CONFIG_SPARC)
+    unsigned int unique_id;
+    struct of_irq_controller *irq_trans;
+#endif
+};
+```
+
+与查找节点有关的 OF 函数有 5 个：
+
+（1） of_find_node_by_name 函数
+of_find_node_by_name 函数通过节点名字查找指定的节点，函数原型如下：
+
+```c
+struct device_node *of_find_node_by_name(struct device_node *from, const char *name);
+```
+
+（2） of_find_node_by_type 函数
+of_find_node_by_type 函数通过 device_type 属性查找指定的节点，函数原型如下：
+
+```c
+struct device_node *of_find_node_by_type(struct device_node *from, const char *type);
+```
+
+（3） of_find_compatible_node 函数
+of_find_compatible_node 函数根据 device_type 和 compatible 这两个属性查找指定的节点，函数原型如下：
+
+```c
+struct device_node *of_find_compatible_node(struct device_node *from,const char *type,const char *compatible);
+```
+
+（4）of_find_matching_node_and_match 函数
+of_find_matching_node_and_match 函数通过 of_device_id 匹配表来查找指定的节点，函数原型如下：
+
+```c
+struct device_node *of_find_matching_node_and_match(struct device_node *from,const struct of_device_id *matches,const struct of_device_id **match);
+```
+
+（5）of_find_node_by_path 函数
+of_find_node_by_path 函数通过路径来查找指定的节点，函数原型如下：
+
+```c
+inline struct device_node *of_find_node_by_path(const char *path);
+```
+
+
+
+#### 4.5.2 提取属性值的 OF 函数
+
+Linux 内核中使用结构体 property 表示属性，此结构体同样定义在文件 include/linux/of.h 中，内容如下：
+
+```c
+struct property {
+    char    *name;
+    int length;
+    void    *value;
+    struct property *next;
+#if defined(CONFIG_OF_DYNAMIC) || defined(CONFIG_SPARC)
+    unsigned long _flags;
+#endif
+#if defined(CONFIG_OF_PROMTREE)
+    unsigned int unique_id;
+#endif
+#if defined(CONFIG_OF_KOBJ)
+    struct bin_attribute attr;
+#endif
+};
+```
+
+Linux 内核也提供了提取属性值的 OF 函数 ：
+
+（1） of_find_property 函数
+of_find_property 函数用于查找指定的属性，函数原型如下：
+
+```c
+property *of_find_property(const struct device_node *np,const char *name,int *lenp);
+```
+
+（2）of_property_count_elems_of_size 函数
+of_property_count_elems_of_size 函数用于获取属性中元素的数量，比如 reg 属性值是一个数组，那么使用此函数可以获取到这个数组的大小，此函数原型如下：
+
+```c
+int of_property_count_elems_of_size(const struct device_node *np,const char *propname,int elem_size);
+```
+
+（3）读取 u8、 u16、 u32 和 u64 类型的数组数据
+
+```c
+static inline int of_property_read_u8_array(const struct device_node *np, const char *propname, u8 *out_values, size_t sz)
+static inline int of_property_read_u16_array(const struct device_node *np, const char *propname, u16 *out_values, size_t sz)
+static inline int of_property_read_u32_array(const struct device_node *np, const char *propname, u32 *out_values, size_t sz)
+static inline int of_property_read_u64_array(const struct device_node *np, const char *propname, u64 *out_values, size_t sz)
+```
+
+（4）读取 u8、 u16、 u32 和 u64 类型属性值
+
+```c
+static inline int of_property_read_u8(const struct device_node *np, const char *propname, u8 *out_value)
+static inline int of_property_read_u16(const struct device_node *np, const char *propname, u16 *out_value)
+static inline int of_property_read_u32(const struct device_node *np, const char *propname, u32 *out_value)
+static inline int of_property_read_s32(const struct device_node *np, const char *propname, s32 *out_value)
+int of_property_read_u64(const struct device_node *np, const char *propname, u64 *out_value);
+```
+
+（5）of_property_read_string 函数
+of_property_read_string 函数用于读取属性中字符串值，函数原型如下：
+
+```c
+int of_property_read_string(struct device_node *np,const char *propname,const char **out_string)
+```
