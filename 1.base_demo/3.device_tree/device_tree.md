@@ -22,6 +22,8 @@ https://blog.csdn.net/zqixiao_09/article/details/50889458
 
 https://zhuanlan.zhihu.com/p/135280350
 
+https://www.eet-china.com/mp/a86114.html
+
 或 《Linux设备驱动开发详解》-- 宋宝华
 
 
@@ -357,10 +359,18 @@ int __init early_init_dt_scan_root(unsigned long node, const char *uname,int dep
 reg = < address1_1 address1_2 length1 [address2_1 address2_2 length2 ...] >
 ```
 
+不同的字段长度有不同的含义：
+#address-cells = <1>;就是说你的地址是32位，#address-cells = <2>;就是说你的地址是64位，现在的设备树中表示地址范围的#address-cells还没有超过2的 #address-cells只能是1和2
+**例如：**
+对于32位的地址#address-cells = <1>：
+reg =  <0x02000000 0x10000>这种情况我们很常见了就是 0x02000000~0x02000000+0x10000地址空间
+对于64位的地址#address-cells = <2>：
+reg =  <0x10000000 0x02000000 0x10000>这种情况我们64位的地址就是高32位是0x10000000，低32位是0x02000000的64位地址所以他代表的地址空间就是：0x1000000002000000 + 0x10000的地址空间
+
 reg 的组织形式为:
 
 ```c
-// address 和 length 对表示一个地址范围， address 是起点，终点是 address+length-1，如果存在多个 address 则第一个 address 可能是地址
+// address 和 length 对表示一个地址范围， address 是起点，终点是 address+length-1，如果存在两个 address 表示是64位的地址
 // address 和 length 都是四字节长度
 reg = <address1 length1 [address2 length2] [address3 length3]>
 ```
