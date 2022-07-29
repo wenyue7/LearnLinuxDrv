@@ -4,9 +4,10 @@
 
 ## 1. 重要的数据结构
 
-### **设备** platform_device
+### 设备 platform_device
 
 ```c
+// include/linux/platform_device.h
 struct platform_device {
 	const char	*name;
 	int		id;
@@ -27,6 +28,7 @@ struct platform_device {
 ```
 
 ```c
+// include/linux/device.h
 struct device {
 	struct device		*parent;
 
@@ -121,11 +123,10 @@ struct device {
 };
 ```
 
-
-
-### **驱动 platform_driver**
+### 驱动 platform_driver
 
 ```c
+// include/linux/platform_device.h
 struct platform_driver {
 	int (*probe)(struct platform_device *);
 	int (*remove)(struct platform_device *);
@@ -139,6 +140,7 @@ struct platform_driver {
 ```
 
 ```c
+// include/linux/device/driver.h
 struct device_driver {
 	const char		*name;
 	struct bus_type		*bus;
@@ -172,11 +174,12 @@ struct device_driver {
 };
 ```
 
-### **总线 bus_type**
+### 总线 bus_type
 
-作为 **device_driver** 的成员
+作为 device_driver 的成员
 
 ```c
+// include/linux/device/bus.h
 struct bus_type {
 	const char		*name;
 	const char		*dev_name;
@@ -218,16 +221,13 @@ struct bus_type {
 };
 ```
 
-
-
 ## 2. 驱动注册和注销
 
 初始化过程中可以完全按照cdev的步骤来，但也可以替换为如下的方法
 
-设备注册和注销的过程类似cdev的 module_init 和 module_exit 上挂的函数，只不过这里挂的是 platform_driver->probe 和 platform_driver->remove
+驱动注册和注销的过程类似cdev的 module_init 和 module_exit 上挂的函数，只不过这里挂的是 platform_driver->probe 和 platform_driver->remove
 
-**定义注册用的结构体**
-
+定义注册用的结构体
 ```c
 static struct platform_driver mpp_service_driver = {
 	.probe = mpp_service_probe,
@@ -239,8 +239,7 @@ static struct platform_driver mpp_service_driver = {
 };
 ```
 
-**设备注册/注销**
-
+驱动注册/注销
 ```c
  // 注册： 调用 platform_driver->probe ,类似 module_init
 #define platform_driver_register(drv) \
@@ -251,8 +250,7 @@ extern int __platform_driver_register(struct platform_driver *,	struct module *)
 extern void platform_driver_unregister(struct platform_driver *)
 ```
 
-**同时包含注册和注销的接口**
-
+同时包含注册和注销的接口
 ```c
 module_platform_driver(__platform_driver)
 		--> extern int __platform_driver_register(struct platform_driver *, struct module *)       // module_init()
@@ -261,16 +259,11 @@ module_platform_driver(__platform_driver)
 				--> void driver_unregister(struct device_driver *drv)
 ```
 
+注意：
+module_platform_driver()宏所定义的模块加载和卸载函数仅仅通过platform_driver_register()、platform_driver_unregister()函数进行platform_driver的注册与注销，而原先注册和注销字符设备的工作已经被移交到platform_driver的probe()和remove()成员函数中。注册完platform_driver \<driverModuleName\>之后可以发现路径/sys/bus/platform/drivers 目录下多出了一个名字叫\<driverModuleName\>的子目录。
 
 
-***注意：***
-
-​		module_platform_driver()宏所定义的模块加载和卸载函数仅仅通过platform_driver_register()、platform_driver_unregister()函数进行platform_driver的注册与注销，而原先注册和注销字符设备的工作已经被移交到platform_driver的probe()和remove()成员函数中。注册完platform_driver <driverModuleName>之后可以发现路径/sys/bus/platform/drivers 目录下多出了一个名字叫<driverModuleName>的子目录。
-
-
-
-**其他函数**
-
+其他函数
 ```c
 // platform_device->dev->driver_data.  <====  data  注意这里使用的是device，不是注册时使用的driver
 static inline void platform_set_drvdata(struct platform_device *pdev,	void *data)
@@ -296,7 +289,7 @@ Linux 3.x 之后，ARM Linux不太喜欢人们以编码的形式去填写platfor
 
 **老的注册设备的方法**
 
-注册完名为<driverModuleName>的platform_driver之后，需要在板文件arch/arm/mach-<soc>/mach-<>.c中添加相应的代码，例如：
+注册完名为\<driverModuleName\>的platform_driver之后，需要在板文件arch/arm/mach-\<soc\>/mach-<>.c中添加相应的代码，例如：
 
 ```c
 static struct platform_device globalfifo_device = {
@@ -311,18 +304,15 @@ static struct platform_device globalfifo_device = {
 
 ## 4. 设备和总线的绑定
 
-首先声明驱动侧 **platform_driver**、**device_driver**、**bus_type** 的关系： platform_driver.device_driver->**bus_type** ，另有设备侧 **platform_device**、 **device**、**bus_type** 的关系： platform_device.device->**bus_type**。
+首先声明驱动侧 platform_driver、device_driver、bus_type 的关系： platform_driver.device_driver->bus_type ，另有设备侧 platform_device、 device、bus_type 的关系： platform_device.device->bus_type。
 
-**驱动**在注册到内核时，通过接口 **module_platform_driver** 向下搜索可以发现注册最终发生在接口 **__platform_driver_register** 中，在该接口中会将结构体 **platform_bus_type** 赋给驱动的 bus，在 **platform_bus_type** 中保存着设备与驱动的匹配接口，设备与驱动的匹配通过 bus_type 结构体中的 match 接口 **paltform_match** 完成。
+驱动在注册到内核时，通过接口 module_platform_driver 向下搜索可以发现注册最终发生在接口 __platform_driver_register 中，在该接口中会将结构体 platform_bus_type 赋给驱动的 bus，在 platform_bus_type 中保存着设备与驱动的匹配接口，设备与驱动的匹配通过 bus_type 结构体中的 match 接口 paltform_match 完成。
 
-**设备**在注册到内核时，通过接口 **platform_add_devices** 完成，通过接口 **platform_add_devices** 向下搜索可以发现最终在接口 **platform_device_add** 中，将结构体 **platform_bus_type** 赋值给设备结构体。如果是从设备树解析得到 paltfrom 设备的话会调用 **of_platform_device_create_pdata** 接口生成 paltform 设备，同样会将 **platform_bus_type** 赋值给设备结构体。
+设备在注册到内核时，通过接口 platform_add_devices 完成，通过接口 platform_add_devices 向下搜索可以发现最终在接口 platform_device_add 中，将结构体 platform_bus_type 赋值给设备结构体。如果是从设备树解析得到 paltfrom 设备的话会调用 of_platform_device_create_pdata 接口生成 paltform 设备，同样会将 platform_bus_type 赋值给设备结构体。
 
-综上，驱动和设备使用的是同一个 bus_type 结构体，或者说，所有的 platform 驱动和设备都是使用结构体 **platform_bus_type**。
+综上，驱动和设备使用的是同一个 bus_type 结构体，或者说，所有的 platform 驱动和设备都是使用结构体 platform_bus_type。
 
-
-
-**platform_bus_type** 中注册的接口 platform_match 负责完成总线和设备的匹配：
-
+platform_bus_type 中注册的接口 platform_match 负责完成总线和设备的匹配：
 ```c
 static int platform_match(struct device *dev, struct device_driver *drv)
 {
@@ -371,15 +361,15 @@ struct resource{
 };
 ```
 
-​		通常关系start、end和flags这三个字段，他们分别标明了资源的开始值、结束值和类型，flags可以为IORESOURCE_IO、IORESOURCE_MEM、IORESOURCE_IRQ、IORESOURCE_DMA等。start、end的含义会随着flags而变更，如果当flags为IORESOURCE_MEM时，start、end分别表示该platform_device占据的内存的开始地址和结束地址；当flags为IORESOURCE_IRQ时，start、end分别表示该platform_device使用的中断号的开始值和结束值，如果只使用了一个中断号，开始和结束值相同。对于同种类型的资源而言，可以有多分，例如某设备占据了两个内存区域，则可以定义两个IORESOURCE_MEM资源。
+通常关系start、end和flags这三个字段，他们分别标明了资源的开始值、结束值和类型，flags可以为IORESOURCE_IO、IORESOURCE_MEM、IORESOURCE_IRQ、IORESOURCE_DMA等。start、end的含义会随着flags而变更，如果当flags为IORESOURCE_MEM时，start、end分别表示该platform_device占据的内存的开始地址和结束地址；当flags为IORESOURCE_IRQ时，start、end分别表示该platform_device使用的中断号的开始值和结束值，如果只使用了一个中断号，开始和结束值相同。对于同种类型的资源而言，可以有多分，例如某设备占据了两个内存区域，则可以定义两个IORESOURCE_MEM资源。
 
-​		对于resource的定义也通常在BSP的板文件中进行，而在具体的设备驱动中通过platform_get_resource()这样的api来获取，此api原型为：
+对于resource的定义也通常在BSP的板文件中进行，而在具体的设备驱动中通过platform_get_resource()这样的api来获取，此api原型为：
 
 ```c
 struct resource *platform_get_resource(struct platform_device *,unsigned int, unsigned int);
 ```
 
-​		对于IRQ而言，platform_getresource()还有一个进行了封装的变体platform_get_irq()，其原型为：
+对于IRQ而言，platform_getresource()还有一个进行了封装的变体platform_get_irq()，其原型为：
 
 ```c
 int platform_get_irq(struct platform_device *dev, unsigned int num);
@@ -389,9 +379,9 @@ int platform_get_irq(struct platform_device *dev, unsigned int num);
 
 
 
-​		设备除了可以在BSP中定义资源以外，还可以附加一些数据信息，这些配置信息也依赖于板，不宜直接放置在设备驱动上，因此platform也提供了platform_data的支持，platform_data的形式是由每个驱动自定义的，如对于DM9000网卡而言，paltform_data为一个dm9000_plat_data结构体，该结构体存放在 platform_device.dev.platform_data 字段下。
+设备除了可以在BSP中定义资源以外，还可以附加一些数据信息，这些配置信息也依赖于板，不宜直接放置在设备驱动上，因此platform也提供了platform_data的支持，platform_data的形式是由每个驱动自定义的，如对于DM9000网卡而言，paltform_data为一个dm9000_plat_data结构体，该结构体存放在 platform_device.dev.platform_data 字段下。
 
-​		通过如下方式可以拿到paltform_data：
+通过如下方式可以拿到paltform_data：
 
 ```c
 static inline void *dev_get_platdata(const struct device *dev) 
