@@ -18,18 +18,18 @@ scripts/Makefile.*          common rules etc. for all kbuild Makefiles.
 kbuild Makefiles            exist in every subdirectory
 ```
 
-scripts 中重点关注以下文件：
-**scripts/KBuild.include**
-在整个Kbuild系统中，scripts/Makefile.include 提供了大量通用函数以及变量的定义，这些定义将被 Makefile.build 、Makefile.lib 和 top Makefile频繁调用，以实现相应的功能,scripts/Makefile.include 参与整个内核编译的过程，是编译的核心脚本之一。
+scripts 中重点关注以下文件：  
+**scripts/KBuild.include**  
+在整个Kbuild系统中，scripts/Makefile.include 提供了大量通用函数以及变量的定义，这些定义将被 Makefile.build 、Makefile.lib 和 top Makefile频繁调用，以实现相应的功能,scripts/Makefile.include 参与整个内核编译的过程，是编译的核心脚本之一。  
 在研究整个Kbuild系统前，有必要先了解这些变量及函数的使用，才能更好地理解整个内核编译的过程。
 
 
-**scripts/Makefile.lib**
+**scripts/Makefile.lib**  
 在linux内核的整个Kbuild系统中，Makefile.lib 对于目标编译起着决定性的作用，如果说 Makefile.build 负责执行 make 的编译过程，而 Makefile.lib 则决定了哪些文件需要编译，哪些目录需要递归进入。
 
 
-**scripts/Makefile.build**
-在Kbuild系统中，Makefile.build文件算是最重要的文件之一了，它控制着整个内核的核心编译部分。那些文件需要递归进入由 Makefile.lib 决定，但是进入的实际操作是由 Makefile.build 处理
+**scripts/Makefile.build**  
+在Kbuild系统中，Makefile.build文件算是最重要的文件之一了，它控制着整个内核的核心编译部分。哪些文件需要递归进入由 Makefile.lib 决定，但是进入的实际操作是由 Makefile.build 处理
 
 
 # scripts/KBuild.include文件解析
@@ -41,7 +41,7 @@ kbuild-dir = $(if $(filter /%,$(src)),$(src),$(srctree)/$(src))
 kbuild-file = $(or $(wildcard $(kbuild-dir)/Kbuild),$(kbuild-dir)/Makefile)
 ```
 
-功能实现：
+功能实现：  
 使用包含 KBuild.include 的文件中的src变量寻找src下的 Kbuild 或 Makefile，Kbuild有更高的优先级，后续可以直接使用 `kbuild-file` 表示 src 目录下的Kbuild/Makefile
 
 ## $(build) 变量
