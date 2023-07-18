@@ -5,6 +5,7 @@
 # mail: 872648180@qq.com
 # Created Time: 2023年07月12日 星期三 22时59分01秒
 #########################################################################
+set -e
 
 modName=globalmem
 
@@ -24,6 +25,10 @@ echo "======> create device <======"
 cat /proc/devices | grep $modName
 echo
 
+echo "======> create device node <======"
+ls -al /dev | grep lhj_dev
+echo
+
 
 echo "======> loaded mode <======"
 echo `lsmod | grep $modName`
@@ -39,3 +44,5 @@ echo "======> rmmod... <======"
 sudo rmmod $modName
 make clean
 echo "======> rmmod finish <======"
+
+set +e
