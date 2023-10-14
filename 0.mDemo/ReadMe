@@ -1,0 +1,4 @@
+学习驱动开发的所有demo示例
+1.直接执行make指令可以生成hello.ko文件
+2.执行 make init 可以加载模块
+3.执行 make exit 可以卸载模块
