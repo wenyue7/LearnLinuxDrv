@@ -45,12 +45,12 @@
 #
 #==============================================================================
 
-MYMOD_1_BASE := kDemo_1_Base
+MYMOD := kDemo
 MYMOD_2 := kDemo_2
 
 ifneq ($(KERNELRELEASE),)
 
-obj-m := $(MYMOD_1_BASE).o
+obj-m := $(MYMOD).o
 obj-m += $(MYMOD_2).o
 
 else
@@ -69,21 +69,21 @@ clean:
 .PHONY: init
 init:
 	@#==> 安装模块
-	sudo insmod ./$(MYMOD_1_BASE).ko init_desc="init_desc_from_cmd_line" exit_desc="exit_desc_from_cmd_line"
+	sudo insmod ./$(MYMOD).ko init_desc="init_desc_from_cmd_line" exit_desc="exit_desc_from_cmd_line"
 	sudo insmod ./$(MYMOD_2).ko init_desc="init_desc_from_cmd_line" exit_desc="exit_desc_from_cmd_line"
 	@#==> modprobe 命令比 insmod 命令更强大，他在加载某模块时会同时加载该模块所依赖的其他模块
 	@#    使用modprobe命令加载的模块如果使用 modprobe -r <fileName> 的方式卸载，将同时卸载其
 	@#    依赖的模块
 	@#==> 模块间的依赖关系存放在根文件系统的 /lib/modules/<kernel_version>/modules.dep文件中
 	@#    也可以使用modinfo <模块名>命令查看模块信息
-	@#sudo modprobe ./$(MYMOD_1_BASE).ko
+	@#sudo modprobe ./$(MYMOD).ko
 	@#==>  lsmod 可以获得系统中已加载的所有模块以及模块间的依赖关系
-	sudo lsmod | grep -E "$(MYMOD_1_BASE)|$(MYMOD_2)"
+	sudo lsmod | grep -E "$(MYMOD)|$(MYMOD_2)"
 
 .PHONY: exit
 exit:
 	sudo rmmod $(MYMOD_2)
-	sudo rmmod $(MYMOD_1_BASE)
-	@#sudo modprobe -r ./$(MYMOD_1_BASE).ko
+	sudo rmmod $(MYMOD)
+	@#sudo modprobe -r ./$(MYMOD).ko
 
 endif
