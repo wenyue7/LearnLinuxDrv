@@ -593,6 +593,85 @@ kobject与ktype关联，ktype定义了一些kobject相关的默认属性：析�
 在sysfs中，kobject将以独立的目录出现在文件系统中，相关的目录或者一个给定目录的
 子目录，可能属于同一个kset。
 
+## class
+
+参考文章：
+[linux设备模型之Class](https://blog.csdn.net/lizuobin2/article/details/51592253)
+[Linux 内核：设备驱动模型（3）class与device](https://www.cnblogs.com/schips/p/linux_device_model_3.html)
+
+设备驱动模型中，还有一个抽象概念叫做类（CLass），准确来说，叫做设备类。
+
+设备类是一个设备的高层视图，是指提供的用户接口相似的一类设备的集合，它抽象出了
+底层的实现细节，从而允许用户空间使用设备所提供的功能，而不用关心设备是如何连接
+和工作的。可以理解为抽象出了一套通用的接口。常见的类设备有 Input、tty、usb、rtc等。
+
+class 与 bus 类似，我们在设备总线驱动模型中创建设备时，要指定它所属的 Bus ，那么
+在创建类设备的时候也需要指定它所从属的类，可以发现他与总线设备驱动模型很类似。
+
+类成员通常由kernel代码所控制，而无需驱动的明确支持。但有些情况下驱动也需要直接处理类。
+
+```C
+struct class {
+    // 设别类名称，会在“/sys/class/”目录下体现。实际使用的是内部kobj包含的动态创建的名称。
+    const char        *name;
+
+    // 该class的默认attribute，会在class注册到内核时，自动在“/sys/class/xxx_class”
+    // 下创建对应的attribute文件。
+    const struct attribute_group    **class_groups;
+    // 该class下每个设备的attribute，会在设备注册到内核时，自动在该设备的sysfs目录
+    // 下创建对应的attribute文件。
+    const struct attribute_group    **dev_groups;
+
+    // 设备发出uevent消息时添加环境变量用的
+    // 在core.c中的dev_uevent()函数，其中就包含对设备所属bus或class中dev_uevent()
+    // 方法的调用，只是bus结构中定义方法用的函数名是uevent。
+    int (*dev_uevent)(const struct device *dev, struct kobj_uevent_env *env);
+    // 返回设备节点的相对路径名，在core.c的device_get_devnode()中有调用到。
+    char *(*devnode)(const struct device *dev, umode_t *mode);
+
+    // 释放方法
+    // 用于回收这个设备类本身自身的回调函数。
+    void (*class_release)(const struct class *class);
+    // 用于release class内设备的回调函数。在device_release接口中，会依次检查Device、
+    // Device Type以及Device所在的class，是否注册release接口，如果有则调用相应的
+    // release接口release设备指针。具体在drivers/base/core.c的device_release()函数
+    // 中调用。
+    void (*dev_release)(struct device *dev);
+
+    int (*shutdown_pre)(struct device *dev);
+
+    // 命名空间
+    const struct kobj_ns_type_operations *ns_type;
+    const void *(*namespace)(const struct device *dev);
+
+    void (*get_ownership)(const struct device *dev, kuid_t *uid, kgid_t *gid);
+
+    // 电源管理有关
+    const struct dev_pm_ops *pm;
+};
+```
+
+创建/删除一个class
+```C
+// drivers/base/class.c
+
+// This is used to create a struct class pointer that can then be used
+// in calls to device_create().
+
+// owner：有的版本需要设置owner，一般设置为THIS_MODULE
+// name: class的名字
+struct class *class_create(const char *name)
+
+void class_destroy(const struct class *cls)
+```
+其他class操作可以直接看内核源码
+
+
+分析设备总线驱动模型的时候可以知道，将一个设备调用 device_add 函数注册到内核中
+的时候，如果指定了设备号，那么用户空间的 mdev 会根据 sysfs 文件系统中的设备信息
+去自动创建设备节点。观察 device_create 接口，参数里还有设备号，里边也间接调用了
+device_add
+
 
 ## sysfs
 

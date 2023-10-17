@@ -45,6 +45,9 @@
 #
 #==============================================================================
 
+USERDEMO := "userDemoBase.c"
+USERDEMO_EXE := "uDemo"
+
 MYMOD := kDemo
 MYMOD_2 := kDemo_2
 
@@ -61,10 +64,12 @@ PWD := $(shell pwd)
 .PHONY: modules
 modules:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+	gcc -o $(USERDEMO_EXE) $(USERDEMO)
 
 .PHONY: clean
 clean:
 	rm -rf *.o *~ core .depend .*.cmd .*.o.d *.mod *.ko *.mod.c .tmp_versions Module* modules*
+	rm $(USERDEMO_EXE)
 
 .PHONY: init
 init:
