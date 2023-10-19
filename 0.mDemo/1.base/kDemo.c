@@ -245,6 +245,8 @@ static int __init m_chr_init(void)
     // 可以使用 cat /dev/kmsg 实时查看打印
     printk(KERN_INFO "module %s init desc:%s\n", __func__, init_desc);
 
+    printk(KERN_INFO "git version:%s\n", DEMO_GIT_VISION);
+
     // Dynamically apply for device number
     err = alloc_chrdev_region(&devno, 0, MAX_DEV, "m_chrdev");
 
@@ -305,3 +307,6 @@ MODULE_LICENSE("GPL v2");                       // 描述模块的许可证
 MODULE_AUTHOR("Lhj <872648180@qq.com>");        // 描述模块的作者
 MODULE_DESCRIPTION("base demo for learning");   // 描述模块的介绍信息
 MODULE_ALIAS("base demo");                      // 描述模块的别名信息
+// 设置内核模块版本，可以通过modinfo kDemo.ko查看
+// 如果不使用MODULE_VERSION设置模块信息，modinfo会看不到 version 信息
+MODULE_VERSION(DEMO_GIT_VISION);

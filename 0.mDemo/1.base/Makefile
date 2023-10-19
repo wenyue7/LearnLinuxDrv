@@ -53,6 +53,13 @@ MYMOD_2 := kDemo_2
 
 ifneq ($(KERNELRELEASE),)
 
+DEMO_GIT_VISION := \
+	$(shell git log -1 --no-decorate --date=short \
+	--pretty=format:"%h author: %<|(30)%an %cd %s" -- $(src) \
+	|| echo -n "unknown git version info, pwd:"`pwd`)
+
+CFLAGS_$(MYMOD).o += -DDEMO_GIT_VISION="\"$(DEMO_GIT_VISION)\""
+
 obj-m := $(MYMOD).o
 obj-m += $(MYMOD_2).o
 
