@@ -1,0 +1,70 @@
+参考博客：
+https://www.cnblogs.com/sqlsec/p/docker.html
+https://blog.csdn.net/qq_34924407/article/details/81660974
+
+安装Docker：
+Linux安装：sudo apt-get install docker.io
+
+Dokcer通过Dokcer Hub搭建镜像共享生态系统，类似于GitHub，这意味着我们可以直接下载其他人已经打包好的镜像。
+
+基本概念：
+镜像 ：只读的模板
+容器 ：负责应用程序的运行。是从镜像创建的运行实例，互相隔离，安全的平台。
+镜像只读 :容器在启动时创建一层可写层作为最上层。（类似overlayfs）
+仓库 ：集中存放镜像的地方，和github类似。https://hub.docker.com/
+
+常用指令：
+
+docker search <name>
+使用docker search 命令在Docker HUB中搜索名称与name相关的镜像，例如ubuntu
+
+docker pull ubuntu
+从Docker Hub下载名为ubuntu的镜像
+
+docker images
+列出下载的镜像
+
+docker run -i -t --name hellodocker ubuntu /bin/bash
+# mac: docker run -i -t --name mdoc ubuntu_lhj /usr/bin/fish
+命令格式为：docker run <选项参数>  <镜像名称> <要运行的文件>
+docker run - 运行一个容器
+-t - 分配一个（伪） tty
+-i - 开发输入(so we can interact with it)
+—name - 指定容器的名称。如果不指定的话，docker默认会自动生成随机的名称进行指定。
+ubuntu - 使用ubuntu基础镜像
+/bin/bash - 运行bash shell
+说明：执行这条指令之后会进入一个shell，执行exit可以退出，但是退出之后这个容器仍然存在。
+另外可加的参数说明：
+-d    后台
+-p    端口映射
+
+ docker ps -a
+ 查看所有创建的容器，同一个镜像可以创建多个容器，这里可以看到容器的运行状态和名字
+
+ docker attach <name>
+ 重新登录名称为<name>的容器，容器的名字可以使用docker ps -a指令查询，这里指令指令之后如果不显示需要按一下回车键
+
+ docker start/restart/stop/kill <name>
+ 启动/重启/终止/杀死一个名字为<name>的容器，容器的名字可以使用docker ps -a指令查询
+
+docker rm <name>
+删除一个名字为name的容器
+
+docker rmi <name>
+删除一个名字为name的镜像
+
+sudo docker commit -m "Added nginx from ubuntu14.04" -a "<username>" 79c761f627f3 <username>/ubuntu-nginx:v1
+-m参数用来来指定提交的说明信息
+-a可以指定用户名的
+79c761f627f3代表的时容器的id
+saymagic/ubuntu-nginx:v1指定目标镜像的用户名、仓库名和tag信息。
+创建成功后会返回这个镜像的ID信息。注意的是，你一定要将saymagic改为你自己的用户名。因为下文还会用到此用户名。
+此时，如果运行docker run -it <username>/ubuntu-nginx:v1就会得到一个容器
+
+docker login
+登录在Docker Hub注册的用户
+之后运行docker push <username>/ubuntu-nginx:v1可以推送自己的个人镜像
+
+docker cp id:/xxx/xx   /yyy/yy/
+docker cp  /yyy/yy/    id:/xxx/xx
+主机容器互拷数据
