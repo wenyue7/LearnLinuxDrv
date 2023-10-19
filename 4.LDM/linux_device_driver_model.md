@@ -334,7 +334,9 @@ struct kobject *kobject_create(void)
 // 如果需要加入到kset中，在这个位置添加
 kobj->kset = my_kset;
 
-// kobject_create 返回的空 kobject 必须用 kobj_init()进行初始化
+// kobject_create 返回的空 kobject 需要用 kobj_init()进行初始化，
+// 看内核源码发现kobject_create 内部也会调用kobject_init，因此调用kobj_init()
+// 不是必需的
 // 以分配但未初始化的kobject指针及其kobj_type指针作为参数
 void kobject_init(struct kobject *kobj, struct kobj_type *ktype)
 
@@ -731,6 +733,7 @@ sysfs项。当target kobject需要删除时，要记得删除相应的符号链�
 
 ```C
 // 添加kobject到sysfs中，同时根据其层次结构创建目录及其默认属性
+// kobject_create 见kobject章节的描述
 int kobject_add(struct kobject *kobj, struct kobject *parent, const char *fmt, ...)
 // 与其相反功能的函数如下，内部会调用 kobject_put 接口
 void kobject_del(struct kobject *kobj)
@@ -741,7 +744,7 @@ struct kobject *kobject_create_and_add(const char *name, struct kobject *parent)
 
 ### 向sysfs中添加文件
 
-#### 默认属性
+#### 默认属性（kobject）
 
 文件的默认属性是通过kobject和kset中的ktype字段中的default_attrs字段提供的。因此，
 所有具有相同类型的kobject在他们对应的sysfs目录下都拥有相同的默认文件集合。大多数
@@ -754,6 +757,56 @@ static inline void sysfs_remove_file(struct kobject *kobj, const struct attribut
 
 int __must_check sysfs_create_group(struct kobject *kobj, const struct attribute_group *grp);
 void sysfs_remove_group(struct kobject *kobj, const struct attribute_group *grp);
+```
+
+注意这里使用的`struct attribute *attr`应该作为一个父类来理解，至少会存在如下子类：
+```C
+// include/linux/kobject.h
+struct kobj_attribute {
+    struct attribute attr;
+    ssize_t (*show)(struct kobject *kobj, struct kobj_attribute *attr,
+            char *buf);
+    ssize_t (*store)(struct kobject *kobj, struct kobj_attribute *attr,
+             const char *buf, size_t count);
+};
+
+// include/linux/device/bus.h
+struct bus_attribute {
+    struct attribute    attr;
+    ssize_t (*show)(const struct bus_type *bus, char *buf);
+    ssize_t (*store)(const struct bus_type *bus, const char *buf, size_t count);
+};
+
+// include/linux/device/driver.h
+struct driver_attribute {
+    struct attribute attr;
+    ssize_t (*show)(struct device_driver *driver, char *buf);
+    ssize_t (*store)(struct device_driver *driver, const char *buf,
+             size_t count);
+};
+
+// include/linux/device.h
+struct device_attribute {
+    struct attribute    attr;
+    ssize_t (*show)(struct device *dev, struct device_attribute *attr,
+            char *buf);
+    ssize_t (*store)(struct device *dev, struct device_attribute *attr,
+             const char *buf, size_t count);
+};
+```
+
+默认属性中使用的是kobject，因此这里声明attribute时建议通过__ATTR完成：
+```C
+#define __ATTR(_name, _mode, _show, _store) {                \
+    .attr = {.name = __stringify(_name),                \
+         .mode = VERIFY_OCTAL_PERMISSIONS(_mode) },        \
+    .show    = _show,                        \
+    .store    = _store,                        \
+}
+
+ex:
+static struct kobj_attribute m_attr = __ATTR("m_attr", 0766,
+                             m_show, m_store);
 ```
 
 kobj_type 中的sysfs_ops定义了用户读写属性时，内核实际调用的接口
@@ -771,6 +824,13 @@ struct sysfs_ops {
 ```
 由于这组函数必须对所有的属性都进行文件I/O请求处理，所以他们通常需要维护某些通用
 映射来调用每个属性所特有的处理函数
+
+在调用show/store函数时，通常通过attribute找其父类，例如：在默认属性中，通过
+attribute，找到kobj_attribute，然后执行kobj_attribute中的/shwo/store函数
+```C
+kattr = container_of(attr, struct kobj_attribute, attr);
+```
+
 
 #### 创建新属性
 
