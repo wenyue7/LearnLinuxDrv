@@ -53,19 +53,19 @@ MYMOD_2 := kDemo_2
 
 ifneq ($(KERNELRELEASE),)
 
-DEMO_GIT_VISION := \
+DEMO_GIT_VERSION := \
 	$(shell git log -1 --no-decorate --date=short \
 	--pretty=format:"%h author: %<|(30)%an %cd %s" -- $(src) \
 	|| echo -n "unknown git version info, pwd:"`pwd`)
 
-CFLAGS_$(MYMOD).o += -DDEMO_GIT_VISION="\"$(DEMO_GIT_VISION)\""
+CFLAGS_$(MYMOD).o += -DDEMO_GIT_VERSION="\"$(DEMO_GIT_VERSION)\""
 
 obj-m := $(MYMOD).o
 obj-m += $(MYMOD_2).o
 
 else
 
-KERNELDIR ?= /lib/modules/$(shell uname -r)/build  
+KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD := $(shell pwd)
 
 .PHONY: modules

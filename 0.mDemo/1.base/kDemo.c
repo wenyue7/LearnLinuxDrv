@@ -238,14 +238,14 @@ static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t 
 //
 // 在Linux内核中，可以使用request_module(const char *fmt, ...)函数加载模块内核模块
 static int __init m_chr_init(void)
-{    
+{
     int err, idx;
     dev_t devno;
 
     // 可以使用 cat /dev/kmsg 实时查看打印
     printk(KERN_INFO "module %s init desc:%s\n", __func__, init_desc);
 
-    printk(KERN_INFO "git version:%s\n", DEMO_GIT_VISION);
+    printk(KERN_INFO "git version:%s\n", DEMO_GIT_VERSION);
 
     // Dynamically apply for device number
     err = alloc_chrdev_region(&devno, 0, MAX_DEV, "m_chrdev");
@@ -256,6 +256,8 @@ static int __init m_chr_init(void)
     dev_major = MAJOR(devno);
 
     // create sysfs class
+    // 创建设备节点的时候也用到了class，因此在/sys/class/m_chrdev_cls下可以看到
+    // 链接到设备的软链接
     m_chrdev_class = class_create(THIS_MODULE, "m_chrdev_cls");
     m_chrdev_class->dev_uevent = m_chrdev_uevent;
 
@@ -268,7 +270,7 @@ static int __init m_chr_init(void)
         // add device to the system where "idx" is a Minor number of the new device
         cdev_add(&m_chrdev_data[idx].cdev, MKDEV(dev_major, idx), 1);
 
-        // create device node /dev/m_chrdev-x where "x" is "idx", equal to the Minor number
+        // create device node /dev/m_chrdev_x where "x" is "idx", equal to the Minor number
         device_create(m_chrdev_class, NULL, MKDEV(dev_major, idx), NULL, "m_chrdev_%d", idx);
     }
 
@@ -286,7 +288,6 @@ static void __exit m_chr_exit(void)
         device_destroy(m_chrdev_class, MKDEV(dev_major, idx));
     }
 
-    class_unregister(m_chrdev_class);
     class_destroy(m_chrdev_class);
 
     unregister_chrdev_region(MKDEV(dev_major, 0), MINORMASK);
@@ -309,4 +310,4 @@ MODULE_DESCRIPTION("base demo for learning");   // 描述模块的介绍信息
 MODULE_ALIAS("base demo");                      // 描述模块的别名信息
 // 设置内核模块版本，可以通过modinfo kDemo.ko查看
 // 如果不使用MODULE_VERSION设置模块信息，modinfo会看不到 version 信息
-MODULE_VERSION(DEMO_GIT_VISION);
+MODULE_VERSION(DEMO_GIT_VERSION);

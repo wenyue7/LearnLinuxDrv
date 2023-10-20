@@ -662,8 +662,12 @@ struct class {
 
 // owner：有的版本需要设置owner，一般设置为THIS_MODULE
 // name: class的名字
+// 创建class会在/sys/class生成对应的类文件夹，如果有依附该class创建的设备节点，
+// 也会在该文件夹下存在到设备节点的软连接
+// 内部会调用class_register
 struct class *class_create(const char *name)
 
+// 内部会调用class_unregister
 void class_destroy(const struct class *cls)
 ```
 其他class操作可以直接看内核源码

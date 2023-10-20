@@ -190,7 +190,6 @@ static void __exit m_chr_exit(void)
         device_destroy(m_chrdev_class, MKDEV(dev_major, idx));
     }
 
-    class_unregister(m_chrdev_class);
     class_destroy(m_chrdev_class);
 
     unregister_chrdev_region(MKDEV(dev_major, 0), MINORMASK);
