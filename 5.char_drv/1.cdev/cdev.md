@@ -79,7 +79,7 @@ vcs1和 vcsa1设备均由驱动程序 7 管理。打开设备时，内核在使�
 根据次设备号，驱动程序能知道要操作的设备。
 </font>
 
-<font color=red>user < - - >dev file<-- [主设备号] --> driver <-- [次设备号] --> dev</font>
+<font color=red>user < - - >dev file <-- [主设备号] --> driver <-- [次设备号] --> dev <- -> file_operations </font>
 
 linux操作系统中为设备文件编号分配了32位无符号整数，其中前12位是主设备号，后20位为
 次设备号，所以在向系统申请设备文件时主设备号不能超过4095，次设备号不能超过2^20 -1。
@@ -612,6 +612,10 @@ mknod DEVNAME {b | c}  MAJOR  MINOR
 大部分基本的驱动程序操作涉及到三个重要的内核数据结构，分别是 file_operations、file和inode
 
 ### 文件操作
+
+文件操作一般理解为设备一侧的，在注册设备的时候指定，操作设备的时候会调用这些接口，
+而不是作为驱动一侧
+
 ```c
 struct file_operations {
     struct module *owner;
