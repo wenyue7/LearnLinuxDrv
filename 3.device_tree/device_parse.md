@@ -1482,6 +1482,18 @@ of_n_size_cells()函数用于获取`#size-cells`属性值，函数原型如下�
 extern int of_n_size_cells(struct device_node *np);
 ```
 
+9. of_property_match_string()函数
+
+of_property_match_string()函数用于查找字符串在指定属性值（字符串列表）中出现的索引：
+```C
+// np：设备节点；
+// propname：属性名称；
+// string：指向在字符串列表中查找的字符串的指针；
+int of_property_match_string(const struct device_node *np,
+                                    const char *propname,
+                                    const char *string);
+```
+
 ### 其他常用的OF函数
 
 1. of_device_is_compatible()函数
