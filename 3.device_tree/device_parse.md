@@ -1494,6 +1494,20 @@ int of_property_match_string(const struct device_node *np,
                                     const char *string);
 ```
 
+10. of_parse_phandle()函数
+
+of_parse_phandle()函数，用于解析 device tree 中的 phandle 引用。phandle 在
+device tree 中是一种指针，用于指向另一个节点。
+```C
+// np：指向当前节点的指针。
+// phandle_name：要解析的 phandle 的名字。
+// index：要解析的 phandle 的索引。如果有多个同名的 phandle，可以通过指定不同的
+//        索引来解析不同的 phandle。
+// ret：解析出的节点的指针。
+static inline struct device_node *of_parse_phandle(const struct device_node *np,
+                                            const char *phandle_name, int index)
+```
+
 ### 其他常用的OF函数
 
 1. of_device_is_compatible()函数
