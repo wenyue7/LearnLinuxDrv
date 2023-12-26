@@ -808,3 +808,25 @@ references:
 
 推荐阅读：
 [【原创】Linux中断子系统（一）-中断控制器及驱动分析 ](https://www.cnblogs.com/LoyenWang/p/12996812.html)
+
+
+IRQ domain用于将硬件的中断号，转换成Linux系统中的中断号（virtual irq, virq），
+如图：
+
+![](./img/1.png)
+
+* 每个中断控制器都对应一个IRQ Domain；
+* 中断控制器驱动通过`irq_domain_add_*()`接口来创建IRQ Domain；
+* IRQ Domain支持三种映射方式：linear map（线性映射），tree map（树映射），
+  no map（不映射）；
+  1. linear map：维护固定大小的表，索引是硬件中断号，如果硬件中断最大数量固定，
+     并且数值不大，可以选择线性映射；
+  2. tree map：硬件中断号可能很大，可以选择树映射；
+  3. no map：硬件中断号直接就是Linux的中断号；
+
+三种映射的方式如下图：
+
+![](./img/2.png)
+
+* 图中描述了三个中断控制器，对应到三种不同的映射方式；
+* 各个控制器的硬件中断号可以一样，最终在Linux内核中映射的中断号是唯一的；
