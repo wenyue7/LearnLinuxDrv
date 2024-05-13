@@ -85,45 +85,13 @@ static long m_chrdev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 
 static ssize_t m_chrdev_read(struct file *file, char __user *buf, size_t count, loff_t *offset)
 {
-    uint8_t *data = "Hello from the kernel world!\n";
-    size_t datalen = strlen(data);
-
-    printk("Reading device: %d\n", MINOR(file->f_path.dentry->d_inode->i_rdev));
-
-    if (count > datalen) {
-        count = datalen;
-    }
-
-    if (copy_to_user(buf, data, count)) {
-        return -EFAULT;
-    }
-
+    printk("enter func:%s line:%d\n", __func__, __LINE__);
     return count;
 }
 
 static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t count, loff_t *offset)
 {
-    size_t maxdatalen = 30, ncopied;
-    uint8_t databuf[30];
-
-    printk("Writing device: %d\n", MINOR(file->f_path.dentry->d_inode->i_rdev));
-
-    if (count < maxdatalen) {
-        maxdatalen = count;
-    }
-
-    ncopied = copy_from_user(databuf, buf, maxdatalen);
-
-    if (ncopied == 0) {
-        printk("Copied %zd bytes from the user\n", maxdatalen);
-    } else {
-        printk("Could't copy %zd bytes from the user\n", ncopied);
-    }
-
-    databuf[maxdatalen] = 0;
-
-    printk("Data from the user: %s\n", databuf);
-
+    printk("enter func:%s line:%d\n", __func__, __LINE__);
     return count;
 }
 
