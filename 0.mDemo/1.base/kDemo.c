@@ -155,7 +155,7 @@ static struct class *m_chrdev_class = NULL;
 // array of m_chr_device_data for
 static struct m_chr_device_data m_chrdev_data[MAX_DEV];
 
-static int m_chrdev_uevent(struct device *dev, struct kobj_uevent_env *env)
+static int m_chrdev_uevent(const struct device *dev, struct kobj_uevent_env *env)
 {
     add_uevent_var(env, "DEVMODE=%#o", 0666);
     return 0;
@@ -258,7 +258,7 @@ static int __init m_chr_init(void)
     // create sysfs class
     // 创建设备节点的时候也用到了class，因此在/sys/class/m_chrdev_cls下可以看到
     // 链接到设备的软链接
-    m_chrdev_class = class_create(THIS_MODULE, "m_chrdev_cls");
+    m_chrdev_class = class_create("m_chrdev_cls");
     m_chrdev_class->dev_uevent = m_chrdev_uevent;
 
     // Create necessary number of the devices

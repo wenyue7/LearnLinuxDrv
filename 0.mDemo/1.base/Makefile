@@ -98,4 +98,7 @@ exit:
 	sudo rmmod $(MYMOD)
 	@#sudo modprobe -r ./$(MYMOD).ko
 
+test:
+	./uDemo -b
+
 endif
