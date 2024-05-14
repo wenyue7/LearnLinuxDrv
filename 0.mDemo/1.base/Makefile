@@ -54,9 +54,11 @@ MYMOD_2 := kDemo_2
 ifneq ($(KERNELRELEASE),)
 
 DEMO_GIT_VERSION := \
-	$(shell git log -1 --no-decorate --date=short \
+	$(shell cd $(PWD); git log -1 --no-decorate --date=short \
 	--pretty=format:"%h author: %<|(30)%an %cd %s" -- $(src) \
 	|| echo -n "unknown git version info, pwd:"`pwd`)
+
+$(info "======> git version"$(DEMO_GIT_VERSION))
 
 CFLAGS_$(MYMOD).o += -DDEMO_GIT_VERSION="\"$(DEMO_GIT_VERSION)\""
 
@@ -75,11 +77,13 @@ modules:
 
 .PHONY: clean
 clean:
+	@echo "======> build <======"
 	rm -rf *.o *~ core .depend .*.cmd .*.o.d *.mod *.ko *.mod.c .tmp_versions Module* modules*
 	rm $(USERDEMO_EXE)
 
 .PHONY: init
 init:
+	@echo "======> init <======"
 	@#==> 安装模块
 	sudo insmod ./$(MYMOD).ko init_desc="init_desc_from_cmd_line" exit_desc="exit_desc_from_cmd_line"
 	sudo insmod ./$(MYMOD_2).ko init_desc="init_desc_from_cmd_line" exit_desc="exit_desc_from_cmd_line"
@@ -94,11 +98,13 @@ init:
 
 .PHONY: exit
 exit:
+	@echo "======> exit <======"
 	sudo rmmod $(MYMOD_2)
 	sudo rmmod $(MYMOD)
 	@#sudo modprobe -r ./$(MYMOD).ko
 
 test:
+	@echo "======> test <======"
 	./uDemo -b
 
 endif
