@@ -157,6 +157,7 @@ void add_node(struct list_head *head, int data)
 void cleanup_list(struct list_head *head)
 {
     struct list_node *node, *tmp;
+    // 因为保留了下一个节点，所以当前节点是可以删除的，因此是安全的
     list_for_each_entry_safe(node, tmp, head, list) {
         list_del(&node->list);
         kfree(node);
@@ -167,6 +168,7 @@ void cleanup_list(struct list_head *head)
 void print_list(struct list_head *head)
 {
     struct list_node *node;
+    // 没保留下一个节点，所以当前节点是不可以删除的，删除的话就找不到后续链表节点了
     list_for_each_entry(node, head, list) {
         printk(KERN_INFO "======> List Node data: %d\n", node->data);
     }
