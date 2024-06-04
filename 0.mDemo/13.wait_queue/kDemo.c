@@ -24,9 +24,15 @@
 #define MAX_DEV 2
 #define CLS_NAME "m_class_name"
 
+// demo 1
 #define TIMEOUT_INTERVAL (2 * HZ) /* 超时时间为2秒 */
 static DECLARE_WAIT_QUEUE_HEAD(wq); /* 声明并初始化等待队列 */
-static int condition = 0; /* 条件变量 */
+static int condition_timeout = 0; /* 条件变量 */
+
+// demo 2
+struct task_struct *thread;
+wait_queue_head_t wait_queue;
+int condition = 0;
 
 static char *init_desc = "default init desc";
 static char *exit_desc = "default exit desc";
@@ -75,8 +81,8 @@ static int m_chrdev_uevent(const struct device *dev, struct kobj_uevent_env *env
 static int m_chrdev_open(struct inode *inode, struct file *file)
 {
     printk("M_CHRDEV: Device open\n");
+    condition_timeout = 1;
     condition = 1;
-    printk("M_CHRDEV: enable condition : %d \n", condition);
     return 0;
 }
 
@@ -141,19 +147,38 @@ static int waiter_thread_fn(void *data)
 {
     long ret;
 
-    printk(KERN_INFO "======>  Waiting for the condition to be true with a timeout\n");
+    printk(KERN_INFO "======> func:%s Waiting for the condition_timeout to be true with a timeout\n", __func__);
 
     /* 使用 wait_event_interruptible_timeout 来等待条件，并设置超时时间 */
-    ret = wait_event_interruptible_timeout(wq, condition, TIMEOUT_INTERVAL);
+    ret = wait_event_interruptible_timeout(wq, condition_timeout, TIMEOUT_INTERVAL);
     if (ret == 0) {
         /* 超时 */
-        printk(KERN_INFO "======> Wait timed out\n");
+        printk(KERN_INFO "======> func:%s Wait timed out\n", __func__);
     } else if (ret < 0) {
         /* 被信号中断 */
-        printk(KERN_INFO "======> Wait was interrupted by a signal\n");
+        printk(KERN_INFO "======> func:%s Wait was interrupted by a signal\n", __func__);
     } else {
         /* 条件满足 */
-        printk(KERN_INFO "======> Condition is true, thread is continuing\n");
+        printk(KERN_INFO "======> func:%s condition_timeout is true, thread is continuing\n", __func__);
+    }
+
+    return 0;
+}
+
+/* 线程的工作函数 */
+int thread_func(void *data)
+{
+    while (!kthread_should_stop()) {
+        /* 进入可中断的等待状态，直到condition变为非零 */
+        if (wait_event_interruptible(wait_queue, condition)) {
+            /* 如果等待被信号中断，例如停止线程，打印消息并退出 */
+            pr_info("======> func:%s Thread was interrupted by a signal\n", __func__);
+            return 0;
+        }
+
+        /* 如果条件满足，执行相应的工作 */
+        pr_info("======> func:%s Condition is met, doing work...\n", __func__);
+        condition = 0; /* 重置条件，以便下次等待 */
     }
 
     return 0;
@@ -197,6 +222,7 @@ static int __init m_chr_init(void)
         device_create(m_chrdev_class, NULL, MKDEV(dev_major, idx), NULL, "m_chrdev_%d", idx);
     }
 
+    // demo 1 wait_event_interruptible_timeout
     /* 创建一个内核线程来等待条件 */
     waiter_task = kthread_create(waiter_thread_fn, NULL, "waiter_thread");
     if (IS_ERR(waiter_task)) {
@@ -204,6 +230,16 @@ static int __init m_chr_init(void)
         return PTR_ERR(waiter_task);
     }
     wake_up_process(waiter_task);
+
+    // demo 2 wait_event_interruptible
+    /* 初始化等待队列 */
+    init_waitqueue_head(&wait_queue);
+    /* 创建线程 */
+    thread = kthread_run(thread_func, NULL, "my_thread");
+    if (IS_ERR(thread)) {
+        pr_err("Failed to create thread\n");
+        return PTR_ERR(thread);
+    }
 
     return 0;
 }
@@ -214,6 +250,10 @@ static void __exit m_chr_exit(void)
     int idx;
 
     printk(KERN_INFO "module %s exit desc:%s\n", __func__, exit_desc);
+
+    /* 停止线程 */
+    if (!IS_ERR(thread))
+        kthread_stop(thread);
 
     for (idx = 0; idx < MAX_DEV; idx++) {
         device_destroy(m_chrdev_class, MKDEV(dev_major, idx));
