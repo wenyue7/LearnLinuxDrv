@@ -135,13 +135,13 @@ struct list_node {
 };
 
 // 初始化链表
-void init_list(struct list_head *head)
+static void init_list(struct list_head *head)
 {
     INIT_LIST_HEAD(head);
 }
 
 // 向链表添加节点
-void add_node(struct list_head *head, int data)
+static void add_node(struct list_head *head, int data)
 {
     struct list_node *new_node = kmalloc(sizeof(struct list_node), GFP_KERNEL);
     if (!new_node) {
@@ -154,7 +154,7 @@ void add_node(struct list_head *head, int data)
 }
 
 // 清理链表（释放所有节点）
-void cleanup_list(struct list_head *head)
+static void cleanup_list(struct list_head *head)
 {
     struct list_node *node, *tmp;
     // 因为保留了下一个节点，所以当前节点是可以删除的，因此是安全的
@@ -165,7 +165,7 @@ void cleanup_list(struct list_head *head)
 }
 
 // 遍历链表并打印节点数据
-void print_list(struct list_head *head)
+static void print_list(struct list_head *head)
 {
     struct list_node *node;
     // 没保留下一个节点，所以当前节点是不可以删除的，删除的话就找不到后续链表节点了
