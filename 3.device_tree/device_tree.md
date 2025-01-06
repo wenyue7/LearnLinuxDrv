@@ -749,10 +749,10 @@ DTSpec 采用开放固件推荐实践：中断映射，版本 0.9 [b7] 中规定
 中断控制器。 如果中断生成设备没有中断父属性，则假定其中断父设备是其设备树父设备。
 
 每个中断生成设备都包含一个中断属性，该属性具有描述该设备的一个或多个中断源的值。
-每个源都用称为中断说明符的信息表示。 中断说明符的格式和含义是中断域特定的，即，
-它取决于其中断域根节点的属性。 中断域的根使用`#interrupt-cells`属性来定义对中断
-说明符进行编码所需的`<u32>`值的数量。 例如，对于 Open PIC 中断控制器，中断说明符
-采用两个 32 位值，并由中断号和中断的级别/感知信息组成。
+每个源都用称为中断说明符的信息表示。 <font color='red'>中断说明符的格式和含义是
+中断域特定的，即，它取决于其中断域根节点的属性。 中断域的根使用`#interrupt-cells`
+属性来定义对中断说明符进行编码所需的`<u32>`值的数量</font>。 例如，对于 Open PIC
+中断控制器，中断说明符采用两个 32 位值，并由中断号和中断的级别/感知信息组成。
 
 中断域是解释中断说明符的上下文。 域的根是 (1) 中断控制器或 (2) 中断关系。
 
@@ -848,7 +848,7 @@ interrupts-extended = <&pic 0xA 8>, <&gic 0xda>;
 
 #### 中断控制器属性
 
-**`#interrupt-cells`**
+##### **`#interrupt-cells`**
 
 **属性名**：`#interrupt-cells`
 
@@ -858,8 +858,59 @@ interrupts-extended = <&pic 0xA 8>, <&gic 0xda>;
 
 `#interrupt-cells`属性定义对中断域的中断说明符进行编码所需的单元数。
 
+interrupt-cells 的具体含义由中断控制器的驱动程序或文档定义。不同的控制器具有不同
+的解释。例如：
 
-**interrupt-controller**
+**ARM GIC 中断控制器**
+
+GIC 是 ARM 平台中常用的中断控制器，它的 #interrupt-cells 通常为 3。举例：
+```
+interrupt-controller {
+    compatible = "arm,cortex-a15-gic";
+    #interrupt-cells = <3>;
+};
+```
+
+设备节点示例：
+```
+device@0 {
+    compatible = "vendor,device";
+    interrupts = <1 17 4>;
+};
+```
+解释：
+1. 第一单元 (1)：中断类型
+    * 0 表示 SPI（共享中断）
+    * 1 表示 PPI（专用中断）
+2. 第二单元 (17)：中断号
+    * SPI 中断号偏移为 32，即实际中断号是 32 + 17 = 49，设备树里写的是相对偏移。
+3. 第三单元 (4)：触发类型
+    * 1 表示上升沿触发
+    * 4 表示高电平触发
+
+**GPIO 中断控制器**
+
+GPIO 控制器的 #interrupt-cells 通常为 2。示例：
+```
+gpio-controller {
+    compatible = "vendor,gpio-controller";
+    #interrupt-cells = <2>;
+};
+```
+设备节点示例：
+```
+device@1 {
+    compatible = "vendor,device";
+    interrupts = <5 8>;
+};
+```
+解释：
+1. 第一个单元 (5)：GPIO 引脚号。
+2. 第二个单元 (8)：触发类型（边沿或电平）。
+
+
+
+##### **interrupt-controller**
 
 **属性名**：interrupt-controller
 
