@@ -18,7 +18,7 @@
 
 #define DEVNAME_0 "/dev/m_misc_demo"
 
-// 可能会存在设备打不开的问题，需要修改设备节点的权限
+/* 可能会存在设备打不开的问题，需要修改设备节点的权限 */
 
 int test_base()
 {
@@ -53,13 +53,17 @@ int test_cases(char *test_case)
 int main(int argc, char *argv[], char *envp[])
 {
     int opt;
-    // 单个字符a          表示选项a没有参数            格式：-a即可，不加参数
-    // 单字符加冒号b:     表示选项b有且必须加参数      格式：-b 100或-b100,但-b=100错
-    // 单字符加2冒号c::   表示选项c可以有，也可以无    格式：-c200，其它格式错误
-    // char *string = "a::b:c:d";
+    /*
+     * 单个字符a          表示选项a没有参数            格式：-a即可，不加参数
+     * 单字符加冒号b:     表示选项b有且必须加参数      格式：-b 100或-b100,但-b=100错
+     * 单字符加2冒号c::   表示选项c可以有，也可以无    格式：-c200，其它格式错误
+     * char *string = "a::b:c:d";
+     */
     char *cmd_str = "bt:";
-    // b  : base opt
-    // t: : test case ex: -t 1
+    /*
+     * b  : base opt
+     * t: : test case ex: -t 1
+     */
 
     while ((opt = getopt(argc, argv, cmd_str))!= -1)
     {

@@ -77,12 +77,12 @@
  */
 
 
-#include <linux/init.h>         // __init   __exit
-#include <linux/module.h>       // module_init  module_exit
+#include <linux/init.h>         /* __init   __exit */
+#include <linux/module.h>       /* module_init  module_exit */
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
-//-- file opt
+/* file opt */
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 
@@ -106,7 +106,7 @@ static long m_chrdev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 static ssize_t m_chrdev_read(struct file *file, char __user *buf, size_t count, loff_t *offset);
 static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t count, loff_t *offset);
 
-// initialize file_operations
+/* initialize file_operations */
 static const struct file_operations m_chrdev_fops = {
     .owner      = THIS_MODULE,
     .open       = m_chrdev_open,
@@ -116,20 +116,20 @@ static const struct file_operations m_chrdev_fops = {
     .write       = m_chrdev_write
 };
 
-// device data holder, this structure may be extended to hold additional data
+/* device data holder, this structure may be extended to hold additional data */
 struct m_chr_device_data {
     struct cdev cdev;
 };
 
-// global storage for device Major number
-// 多个设备可以对应一个驱动
+/* global storage for device Major number */
+/* 多个设备可以对应一个驱动 */
 static int dev_major = 0;
 
-// sysfs class structure
-// 多个设备对应一个驱动，自然也对应同一个class
+/* sysfs class structure */
+/* 多个设备对应一个驱动，自然也对应同一个class */
 static struct class *m_chrdev_class = NULL;
 
-// array of m_chr_device_data for
+/* array of m_chr_device_data for */
 static struct m_chr_device_data m_chrdev_data[MAX_DEV];
 
 static int m_chrdev_uevent(struct device *dev, struct kobj_uevent_env *env)
@@ -142,18 +142,20 @@ static int m_chrdev_open(struct inode *inode, struct file *file)
 {
     printk("M_CHRDEV: Device open\n");
 
-    // filp_open() 是一个异步执行函数。 它将异步打开指定的文件。
-    // 如果打开文件后没有做其他事情就结束该功能，很有可能不会做打开的动作
-    // filename：要打开/创建文件的名称在内核中打开的文件时需要注意打开的时机，
-    //           很容易出现需要打开文件的驱动很早就加载并打开文件，但需要打开的
-    //           文件所在设备还不有挂载到文件系统中，而导致打开失败。
-    // open_mode：文件的打开方式，其取值与标准库中的open相应参数类似，
-    //            可以取O_CREAT,O_RDWR,O_RDONLY等。
-    // mode：创建文件时使用，设置创建文件的读写权限，其它情况可以匆略设为0
-    // ret：该函数返回strcut file*结构指针，供后继函数操作使用，该返回值用IS_ERR()
+    /*
+     * filp_open() 是一个异步执行函数。 它将异步打开指定的文件。
+     * 如果打开文件后没有做其他事情就结束该功能，很有可能不会做打开的动作
+     * filename：要打开/创建文件的名称在内核中打开的文件时需要注意打开的时机，
+     *           很容易出现需要打开文件的驱动很早就加载并打开文件，但需要打开的
+     *           文件所在设备还不有挂载到文件系统中，而导致打开失败。
+     * open_mode：文件的打开方式，其取值与标准库中的open相应参数类似，
+     *            可以取O_CREAT,O_RDWR,O_RDONLY等。
+     * mode：创建文件时使用，设置创建文件的读写权限，其它情况可以匆略设为0
+     * ret：该函数返回strcut file*结构指针，供后继函数操作使用，该返回值用IS_ERR()
+     */
     fp =filp_open(FILE_NAME, O_RDWR | O_CREAT, 0644);
     printk("fs file address:0x%p\n", fp);
-    // 判断指针是否有效，不建议通过等于NULL来判断
+    /* 判断指针是否有效，不建议通过等于NULL来判断 */
     if (IS_ERR(fp)){
         printk("create file error\n");
         return -1;
@@ -166,9 +168,11 @@ static int m_chrdev_release(struct inode *inode, struct file *file)
 {
     printk("M_CHRDEV: Device close\n");
 
-    // 关闭文件
-    // 第一个参数是filp_open返回的file结构体指针
-    // 第二个参数一般传递NULL值，也有用current->files作为实参
+    /*
+     * 关闭文件
+     * 第一个参数是filp_open返回的file结构体指针
+     * 第二个参数一般传递NULL值，也有用current->files作为实参
+     */
     filp_close(fp, NULL);
 
     return 0;
@@ -186,7 +190,7 @@ static ssize_t m_chrdev_read(struct file *file, char __user *buf, size_t count, 
     int ret;
 
     pos = 0;
-    // 调用vfs_read读取内容，新版本kernel不再导出vfs_read符号，改用kernel_read
+    /* 调用vfs_read读取内容，新版本kernel不再导出vfs_read符号，改用kernel_read */
     ret = kernel_read(fp, m_buf1, sizeof(m_buf), &pos);
     printk("func:%s ret=%d read contet=%s\n", __func__, ret, m_buf1);
 
@@ -199,7 +203,7 @@ static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t 
     int ret;
 
     pos = 0;
-    // 调用vfs_write写内容，新版本kernel不再导出vfs_write符号，改用kernel_write
+    /* 调用vfs_write写内容，新版本kernel不再导出vfs_write符号，改用kernel_write */
     ret = kernel_write(fp, m_buf, sizeof(m_buf), &pos);
     printk("func:%s ret=%d write contet=%s\n", __func__, ret, m_buf);
 
@@ -211,31 +215,33 @@ static int __init m_chr_init(void)
     int err, idx;
     dev_t devno;
 
-    // 可以使用 cat /dev/kmsg 实时查看打印
+    /* 可以使用 cat /dev/kmsg 实时查看打印 */
     printk(KERN_INFO "module %s init desc:%s\n", __func__, init_desc);
 
-    // Dynamically apply for device number
+    /* Dynamically apply for device number */
     err = alloc_chrdev_region(&devno, 0, MAX_DEV, "m_chrdev");
 
-    // 注意这里设备号会作为/dev中设备节点和驱动的一个纽带
-    // 设备初始化、注册需要用到设备号
-    // 创建设备节点也需要用到设备号
+    /*
+     * 注意这里设备号会作为/dev中设备节点和驱动的一个纽带
+     * 设备初始化、注册需要用到设备号
+     * 创建设备节点也需要用到设备号
+     */
     dev_major = MAJOR(devno);
 
-    // create sysfs class
+    /* create sysfs class */
     m_chrdev_class = class_create(THIS_MODULE, "m_chrdev_cls");
     m_chrdev_class->dev_uevent = m_chrdev_uevent;
 
-    // Create necessary number of the devices
+    /* Create necessary number of the devices */
     for (idx = 0; idx < MAX_DEV; idx++) {
-        // init new device
+        /* init new device */
         cdev_init(&m_chrdev_data[idx].cdev, &m_chrdev_fops);
         m_chrdev_data[idx].cdev.owner = THIS_MODULE;
 
-        // add device to the system where "idx" is a Minor number of the new device
+        /* add device to the system where "idx" is a Minor number of the new device */
         cdev_add(&m_chrdev_data[idx].cdev, MKDEV(dev_major, idx), 1);
 
-        // create device node /dev/m_chrdev-x where "x" is "idx", equal to the Minor number
+        /* create device node /dev/m_chrdev-x where "x" is "idx", equal to the Minor number */
         device_create(m_chrdev_class, NULL, MKDEV(dev_major, idx), NULL, "m_chrdev_%d", idx);
     }
 
@@ -264,7 +270,7 @@ module_init(m_chr_init);
 module_exit(m_chr_exit);
 
 
-MODULE_LICENSE("GPL v2");                       // 描述模块的许可证
-MODULE_AUTHOR("Lhj <872648180@qq.com>");        // 描述模块的作者
-MODULE_DESCRIPTION("base demo for learning");   // 描述模块的介绍信息
-MODULE_ALIAS("base demo");                      // 描述模块的别名信息
+MODULE_LICENSE("GPL v2");                       /* 描述模块的许可证 */
+MODULE_AUTHOR("Lhj <872648180@qq.com>");        /* 描述模块的作者 */
+MODULE_DESCRIPTION("base demo for learning");   /* 描述模块的介绍信息 */
+MODULE_ALIAS("base demo");                      /* 描述模块的别名信息 */

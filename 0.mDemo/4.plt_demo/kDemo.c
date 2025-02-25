@@ -5,11 +5,11 @@
     > Created Time: Fri Oct 13 16:02:51 2023
  ************************************************************************/
 
-#include <linux/init.h>         // __init   __exit
-#include <linux/module.h>       // module_init  module_exit
+#include <linux/init.h>         /* __init   __exit */
+#include <linux/module.h>       /* module_init  module_exit */
 #include <linux/cdev.h>
 #include <linux/kernel.h>
-//-- file opt
+/* file opt */
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 
@@ -33,7 +33,7 @@ static long m_miscdev_ioctl(struct file *file, unsigned int cmd, unsigned long a
 static ssize_t m_miscdev_read(struct file *file, char __user *buf, size_t count, loff_t *offset);
 static ssize_t m_miscdev_write(struct file *file, const char __user *buf, size_t count, loff_t *offset);
 
-// initialize file_operations
+/* initialize file_operations */
 static const struct file_operations m_miscdev_fops = {
     .owner      = THIS_MODULE,
     .open       = m_miscdev_open,
@@ -133,8 +133,8 @@ static struct platform_driver m_plt_driver = {
 module_platform_driver(m_plt_driver);
 
 
-MODULE_LICENSE("GPL v2");                       // 描述模块的许可证
-MODULE_AUTHOR("Lhj <872648180@qq.com>");        // 描述模块的作者
-MODULE_DESCRIPTION("base demo for learning");   // 描述模块的介绍信息
-MODULE_ALIAS("plt drv");                      // 描述模块的别名信息
+MODULE_LICENSE("GPL v2");                       /* 描述模块的许可证 */
+MODULE_AUTHOR("Lhj <872648180@qq.com>");        /* 描述模块的作者 */
+MODULE_DESCRIPTION("base demo for learning");   /* 描述模块的介绍信息 */
+MODULE_ALIAS("plt drv");                        /* 描述模块的别名信息 */
 MODULE_VERSION(DEMO_GIT_VERSION);

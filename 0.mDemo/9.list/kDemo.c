@@ -6,15 +6,15 @@
  ************************************************************************/
 
 
-#include <linux/init.h>         // __init   __exit
-#include <linux/module.h>       // module_init  module_exit
+#include <linux/init.h>         /* __init   __exit */
+#include <linux/module.h>       /* module_init  module_exit */
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
-//-- file opt
+/* file opt */
 #include <linux/uaccess.h>
 #include <linux/fs.h>
-//-- list
+/* list */
 #include <linux/list.h>
 #include <linux/init.h>
 
@@ -34,7 +34,7 @@ static long m_chrdev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 static ssize_t m_chrdev_read(struct file *file, char __user *buf, size_t count, loff_t *offset);
 static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t count, loff_t *offset);
 
-// initialize file_operations
+/* initialize file_operations */
 static const struct file_operations m_chrdev_fops = {
     .owner      = THIS_MODULE,
     .open       = m_chrdev_open,
@@ -44,20 +44,24 @@ static const struct file_operations m_chrdev_fops = {
     .write       = m_chrdev_write
 };
 
-// device data holder, this structure may be extended to hold additional data
+/* device data holder, this structure may be extended to hold additional data */
 struct m_chr_device_data {
     struct cdev cdev;
 };
 
-// global storage for device Major number
-// 多个设备可以对应一个驱动
+/*
+ * global storage for device Major number
+ * 多个设备可以对应一个驱动
+ */
 static int dev_major = 0;
 
-// sysfs class structure
-// 多个设备对应一个驱动，自然也对应同一个class
+/*
+ * sysfs class structure
+ * 多个设备对应一个驱动，自然也对应同一个class
+ */
 static struct class *m_chrdev_class = NULL;
 
-// array of m_chr_device_data for
+/* array of m_chr_device_data for */
 static struct m_chr_device_data m_chrdev_data[MAX_DEV];
 
 static int m_chrdev_uevent(const struct device *dev, struct kobj_uevent_env *env)
@@ -128,19 +132,19 @@ static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t 
     return count;
 }
 
-// 链表节点结构体
+/* 链表节点结构体 */
 struct list_node {
     int data;
     struct list_head list;
 };
 
-// 初始化链表
+/* 初始化链表 */
 static void init_list(struct list_head *head)
 {
     INIT_LIST_HEAD(head);
 }
 
-// 向链表添加节点
+/* 向链表添加节点 */
 static void add_node(struct list_head *head, int data)
 {
     struct list_node *new_node = kmalloc(sizeof(struct list_node), GFP_KERNEL);
@@ -153,22 +157,22 @@ static void add_node(struct list_head *head, int data)
     list_add_tail(&new_node->list, head);
 }
 
-// 清理链表（释放所有节点）
+/* 清理链表（释放所有节点） */
 static void cleanup_list(struct list_head *head)
 {
     struct list_node *node, *tmp;
-    // 因为保留了下一个节点，所以当前节点是可以删除的，因此是安全的
+    /* 因为保留了下一个节点，所以当前节点是可以删除的，因此是安全的 */
     list_for_each_entry_safe(node, tmp, head, list) {
         list_del(&node->list);
         kfree(node);
     }
 }
 
-// 遍历链表并打印节点数据
+/* 遍历链表并打印节点数据 */
 static void print_list(struct list_head *head)
 {
     struct list_node *node;
-    // 没保留下一个节点，所以当前节点是不可以删除的，删除的话就找不到后续链表节点了
+    /* 没保留下一个节点，所以当前节点是不可以删除的，删除的话就找不到后续链表节点了 */
     list_for_each_entry(node, head, list) {
         printk(KERN_INFO "======> List Node data: %d\n", node->data);
     }
@@ -181,57 +185,63 @@ static int __init m_chr_init(void)
 
     struct list_head my_list;
 
-    // 可以使用 cat /dev/kmsg 实时查看打印
+    /* 可以使用 cat /dev/kmsg 实时查看打印 */
     printk(KERN_INFO "module %s init desc:%s\n", __func__, init_desc);
 
     printk(KERN_INFO "git version:%s\n", DEMO_GIT_VERSION);
 
-    // Dynamically apply for device number
+    /* Dynamically apply for device number */
     err = alloc_chrdev_region(&devno, 0, MAX_DEV, "m_chrdev");
 
-    // 注意这里设备号会作为/dev中设备节点和驱动的一个纽带
-    // 设备初始化、注册需要用到设备号
-    // 创建设备节点也需要用到设备号
+    /*
+     * 注意这里设备号会作为/dev中设备节点和驱动的一个纽带
+     * 设备初始化、注册需要用到设备号
+     * 创建设备节点也需要用到设备号
+     */
     dev_major = MAJOR(devno);
 
-    // create sysfs class
-    // 创建设备节点的时候也用到了class，因此在/sys/class/m_chrdev_cls下可以看到
-    // 链接到设备的软链接
+    /*
+     * create sysfs class
+     * 创建设备节点的时候也用到了class，因此在/sys/class/m_chrdev_cls下可以看到
+     * 链接到设备的软链接
+     */
     m_chrdev_class = class_create("m_chrdev_cls");
     m_chrdev_class->dev_uevent = m_chrdev_uevent;
 
-    // Create necessary number of the devices
+    /* Create necessary number of the devices */
     for (idx = 0; idx < MAX_DEV; idx++) {
-        // init new device
+        /* init new device */
         cdev_init(&m_chrdev_data[idx].cdev, &m_chrdev_fops);
         m_chrdev_data[idx].cdev.owner = THIS_MODULE;
 
-        // add device to the system where "idx" is a Minor number of the new device
+        /* add device to the system where "idx" is a Minor number of the new device */
         cdev_add(&m_chrdev_data[idx].cdev, MKDEV(dev_major, idx), 1);
 
-        // create device node /dev/m_chrdev_x where "x" is "idx", equal to the Minor number
+        /* create device node /dev/m_chrdev_x where "x" is "idx", equal to the Minor number */
         device_create(m_chrdev_class, NULL, MKDEV(dev_major, idx), NULL, "m_chrdev_%d", idx);
     }
 
-    // 初始化链表
+    /* 初始化链表 */
     init_list(&my_list);
 
-    // 向链表添加节点
+    /* 向链表添加节点 */
     add_node(&my_list, 1);
     add_node(&my_list, 2);
     add_node(&my_list, 3);
 
-    // 遍历链表并打印节点数据
+    /* 遍历链表并打印节点数据 */
     print_list(&my_list);
 
-    // 但在真实场景中，如果链表节点是全局的，需要在模块退出时释放它们
-    // 该链表是在函数栈上分配的，不需要显式清理。但为了演示，在这里也执行它
+    /*
+     * 但在真实场景中，如果链表节点是全局的，需要在模块退出时释放它们
+     * 该链表是在函数栈上分配的，不需要显式清理。但为了演示，在这里也执行它
+     */
     cleanup_list(&my_list);
 
     return 0;
 }
 
-// 模块卸载函数
+/* 模块卸载函数 */
 static void __exit m_chr_exit(void)
 {
     int idx;
@@ -253,15 +263,19 @@ module_init(m_chr_init);
 module_exit(m_chr_exit);
 
 
-// 内核模块领域可接受的LICENSE包括 “GPL”、“GPL v2”、“GPL and additional rights”、
-// “Dual BSD/GPL”、“Dual MPL/GPL”和“Proprietary”（关于模块是否可采用非GPL许可权，
-// 如 Proprietary，这个在学术界是有争议的）
-// 大多数情况下内核模块应该遵守GPL兼容许可权。Linux内核模块最常见的是使用GPL v2
-MODULE_LICENSE("GPL v2");                       // 描述模块的许可证
-// MODULE_xxx这种宏作用是用来添加模块描述信息（可选）
-MODULE_AUTHOR("Lhj <872648180@qq.com>");        // 描述模块的作者
-MODULE_DESCRIPTION("base demo for learning");   // 描述模块的介绍信息
-MODULE_ALIAS("base demo");                      // 描述模块的别名信息
-// 设置内核模块版本，可以通过modinfo kDemo.ko查看
-// 如果不使用MODULE_VERSION设置模块信息，modinfo会看不到 version 信息
+/*
+ * 内核模块领域可接受的LICENSE包括 “GPL”、“GPL v2”、“GPL and additional rights”、
+ * “Dual BSD/GPL”、“Dual MPL/GPL”和“Proprietary”（关于模块是否可采用非GPL许可权，
+ * 如 Proprietary，这个在学术界是有争议的）
+ * 大多数情况下内核模块应该遵守GPL兼容许可权。Linux内核模块最常见的是使用GPL v2
+ */
+MODULE_LICENSE("GPL v2");                       /* 描述模块的许可证 */
+/* MODULE_xxx这种宏作用是用来添加模块描述信息（可选） */
+MODULE_AUTHOR("Lhj <872648180@qq.com>");        /* 描述模块的作者 */
+MODULE_DESCRIPTION("base demo for learning");   /* 描述模块的介绍信息 */
+MODULE_ALIAS("base demo");                      /* 描述模块的别名信息 */
+/*
+ * 设置内核模块版本，可以通过modinfo kDemo.ko查看
+ * 如果不使用MODULE_VERSION设置模块信息，modinfo会看不到 version 信息
+ */
 MODULE_VERSION(DEMO_GIT_VERSION);

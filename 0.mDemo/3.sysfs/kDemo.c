@@ -5,15 +5,15 @@
     > Created Time: Fri Oct 13 16:02:51 2023
  ************************************************************************/
 
-#include <linux/init.h>         // __init   __exit
-#include <linux/module.h>       // module_init  module_exit
+#include <linux/init.h>         /* __init   __exit */
+#include <linux/module.h>       /* module_init  module_exit */
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
-//-- file opt
+/* file opt */
 #include <linux/uaccess.h>
 #include <linux/fs.h>
-// kmalloc
+/* kmalloc */
 #include <linux/slab.h>
 
 #include <linux/sysfs.h>
@@ -39,7 +39,7 @@ static long m_chrdev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 static ssize_t m_chrdev_read(struct file *file, char __user *buf, size_t count, loff_t *offset);
 static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t count, loff_t *offset);
 
-// initialize file_operations
+/* initialize file_operations */
 static const struct file_operations m_chrdev_fops = {
     .owner      = THIS_MODULE,
     .open       = m_chrdev_open,
@@ -49,20 +49,20 @@ static const struct file_operations m_chrdev_fops = {
     .write       = m_chrdev_write
 };
 
-// device data holder, this structure may be extended to hold additional data
+/* device data holder, this structure may be extended to hold additional data */
 struct m_chr_device_data {
     struct cdev cdev;
 };
 
-// global storage for device Major number
-// 多个设备可以对应一个驱动
+/* global storage for device Major number */
+/* 多个设备可以对应一个驱动 */
 static int dev_major = 0;
 
-// sysfs class structure
-// 多个设备对应一个驱动，自然也对应同一个class
+/* sysfs class structure */
+/* 多个设备对应一个驱动，自然也对应同一个class */
 static struct class *m_chrdev_class = NULL;
 
-// array of m_chr_device_data for
+/* array of m_chr_device_data for */
 static struct m_chr_device_data m_chrdev_data[MAX_DEV];
 
 static int m_chrdev_uevent(struct device *dev, struct kobj_uevent_env *env)
@@ -134,40 +134,42 @@ static int __init m_chr_init(void)
     int err, idx;
     dev_t devno;
 
-    // 可以使用 cat /dev/kmsg 实时查看打印
+    /* 可以使用 cat /dev/kmsg 实时查看打印 */
     printk(KERN_INFO "module %s init desc:%s\n", __func__, init_desc);
 
     printk(KERN_INFO "git version:%s\n", DEMO_GIT_VISION);
 
-    // Dynamically apply for device number
+    /* Dynamically apply for device number */
     err = alloc_chrdev_region(&devno, 0, MAX_DEV, "m_chrdev");
 
-    // 注意这里设备号会作为/dev中设备节点和驱动的一个纽带
-    // 设备初始化、注册需要用到设备号
-    // 创建设备节点也需要用到设备号
+    /*
+     * 注意这里设备号会作为/dev中设备节点和驱动的一个纽带
+     * 设备初始化、注册需要用到设备号
+     * 创建设备节点也需要用到设备号
+     */
     dev_major = MAJOR(devno);
 
-    // create sysfs class
+    /* create sysfs class */
     m_chrdev_class = class_create(THIS_MODULE, "m_chrdev_cls");
     m_chrdev_class->dev_uevent = m_chrdev_uevent;
 
-    // Create necessary number of the devices
+    /* Create necessary number of the devices */
     for (idx = 0; idx < MAX_DEV; idx++) {
-        // init new device
+        /* init new device */
         cdev_init(&m_chrdev_data[idx].cdev, &m_chrdev_fops);
         m_chrdev_data[idx].cdev.owner = THIS_MODULE;
 
-        // add device to the system where "idx" is a Minor number of the new device
+        /* add device to the system where "idx" is a Minor number of the new device */
         cdev_add(&m_chrdev_data[idx].cdev, MKDEV(dev_major, idx), 1);
 
-        // create device node /dev/m_chrdev-x where "x" is "idx", equal to the Minor number
+        /* create device node /dev/m_chrdev-x where "x" is "idx", equal to the Minor number */
         device_create(m_chrdev_class, NULL, MKDEV(dev_major, idx), NULL, "m_chrdev_%d", idx);
     }
 
-    // sysfs中每个文件节点都对应一个kobject
+    /* sysfs中每个文件节点都对应一个kobject */
     m_kobj = kobject_create_and_add("m_demo_kobj", NULL);
 
-    // m_attribute = __ATTR(m_demo_attr, 0766, m_show, m_store);
+    /* m_attribute = __ATTR(m_demo_attr, 0766, m_show, m_store); */
     m_attribute.attr.name = "m_demo_attr";
     m_attribute.attr.mode = 0766;
     m_attribute.show = m_show;
@@ -194,7 +196,7 @@ static void __exit m_chr_exit(void)
 
     unregister_chrdev_region(MKDEV(dev_major, 0), MINORMASK);
 
-    // sysfs
+    /* sysfs */
     sysfs_remove_file(m_kobj, &m_attribute.attr);
     kobject_del(m_kobj);
 
@@ -205,8 +207,8 @@ module_init(m_chr_init);
 module_exit(m_chr_exit);
 
 
-MODULE_LICENSE("GPL v2");                       // 描述模块的许可证
-MODULE_AUTHOR("Lhj <872648180@qq.com>");        // 描述模块的作者
-MODULE_DESCRIPTION("base demo for learning");   // 描述模块的介绍信息
-MODULE_ALIAS("base demo");                      // 描述模块的别名信息
+MODULE_LICENSE("GPL v2");                       /* 描述模块的许可证 */
+MODULE_AUTHOR("Lhj <872648180@qq.com>");        /* 描述模块的作者 */
+MODULE_DESCRIPTION("base demo for learning");   /* 描述模块的介绍信息 */
+MODULE_ALIAS("base demo");                      /* 描述模块的别名信息 */
 MODULE_VERSION(DEMO_GIT_VISION);

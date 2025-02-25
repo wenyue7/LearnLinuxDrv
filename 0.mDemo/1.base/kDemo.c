@@ -5,8 +5,10 @@
     > Created Time: Fri Oct 13 16:02:51 2023
  ************************************************************************/
 
-// reference:
-// https://olegkutkov.me/2018/03/14/simple-linux-character-device-driver/
+/*
+ * reference:
+ * https://olegkutkov.me/2018/03/14/simple-linux-character-device-driver/
+ */
 
 /* ============================================================================
  * Linux驱动的两种加载方式:
@@ -71,12 +73,12 @@
  * ============================================================================
  */
 
-#include <linux/init.h>         // __init   __exit
-#include <linux/module.h>       // module_init  module_exit
+#include <linux/init.h>         /* __init   __exit */
+#include <linux/module.h>       /* module_init  module_exit */
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
-//-- file opt
+/* file opt */
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 
@@ -86,41 +88,45 @@
 
 static char *init_desc = "default init desc";
 static char *exit_desc = "default exit desc";
-// 可以为模块定义一个参数，在加载模块时，用户可以像模块传递参数：
-//     module_param(<paraName>, <paraType>, <para Read/write permissions>)
-// 安装传参，如果有多个参数需要以空格进行分隔：
-//     insmod/modprobe <module>.ko <paraName>=<paraValue>
-// 如果不传递，参数将使用模块内定义的缺省值。如果模块被内置（编译进kernel），
-// 就无法insmod了，但是bootloader可以在bootargs里以"<modName>.<paraName>=<value>"
-// 的形式给该内置的模块传递参数
-//
-// 参数的类型可以是byte、short、ushort、int、uint、long、ulong、charp（字符指针）、
-// bool、invbool（布尔的反），在模块被编译时会将 module_param 中声明的类型与变量
-// 定义的类型进行比较，判断是否一致。
-//
-// 模块也可以拥有参数组：
-// module_param_array(<arrayName>, <arrayType>, <arrayLen>, <para Read/write permissions>)
-//
-// 模块被加载之后，在 /sys/module/ 目录下将出现以此模块命名的目录。
-// 当参数为0时，表示该参数不可读写，参数文件也不会导出到用户可访问的文件系统
-// 当参数不为0时，此模块的目录下将出现parameters目录，其中包含一系列以参数命名的
-// 文件节点，这些文件的权限就是传入module_param()的权限，文件的内容为参数的值
-//
-// 权限：
-// #define S_IRWXUGO	(S_IRWXU|S_IRWXG|S_IRWXO)
-// #define S_IALLUGO	(S_ISUID|S_ISGID|S_ISVTX|S_IRWXUGO)
-// #define S_IRUGO		(S_IRUSR|S_IRGRP|S_IROTH)
-// #define S_IWUGO		(S_IWUSR|S_IWGRP|S_IWOTH)
-// #define S_IXUGO		(S_IXUSR|S_IXGRP|S_IXOTH)
+/*
+ * 可以为模块定义一个参数，在加载模块时，用户可以像模块传递参数：
+ *     module_param(<paraName>, <paraType>, <para Read/write permissions>)
+ * 安装传参，如果有多个参数需要以空格进行分隔：
+ *     insmod/modprobe <module>.ko <paraName>=<paraValue>
+ * 如果不传递，参数将使用模块内定义的缺省值。如果模块被内置（编译进kernel），
+ * 就无法insmod了，但是bootloader可以在bootargs里以"<modName>.<paraName>=<value>"
+ * 的形式给该内置的模块传递参数
+ *
+ * 参数的类型可以是byte、short、ushort、int、uint、long、ulong、charp（字符指针）、
+ * bool、invbool（布尔的反），在模块被编译时会将 module_param 中声明的类型与变量
+ * 定义的类型进行比较，判断是否一致。
+ *
+ * 模块也可以拥有参数组：
+ * module_param_array(<arrayName>, <arrayType>, <arrayLen>, <para Read/write permissions>)
+ *
+ * 模块被加载之后，在 /sys/module/ 目录下将出现以此模块命名的目录。
+ * 当参数为0时，表示该参数不可读写，参数文件也不会导出到用户可访问的文件系统
+ * 当参数不为0时，此模块的目录下将出现parameters目录，其中包含一系列以参数命名的
+ * 文件节点，这些文件的权限就是传入module_param()的权限，文件的内容为参数的值
+ *
+ * 权限：
+ * #define S_IRWXUGO	(S_IRWXU|S_IRWXG|S_IRWXO)
+ * #define S_IALLUGO	(S_ISUID|S_ISGID|S_ISVTX|S_IRWXUGO)
+ * #define S_IRUGO		(S_IRUSR|S_IRGRP|S_IROTH)
+ * #define S_IWUGO		(S_IWUSR|S_IWGRP|S_IWOTH)
+ * #define S_IXUGO		(S_IXUSR|S_IXGRP|S_IXOTH)
+ */
 module_param(init_desc, charp, S_IRUGO);
 module_param(exit_desc, charp, S_IRUGO);
 
 char *demo1_export_test = "this is export symbol from module kDemo_1_base";
-// Linux的 /proc/kallsyms 文件对应着内核符号表，它记录了符号以及符号所在的内存地址。
-// 模块可以使用如下宏导出符号到内核符号表中，导出的符号可以被其他模块使用，只需要
-// 使用前声明一下就可以。
-// EXPORT_SYMBOL(<symbolName>)
-// EXPORT_SYMBOL_GPL(<symbolName>)  // 只适用于包含GPL许可权的模块
+/*
+ * Linux的 /proc/kallsyms 文件对应着内核符号表，它记录了符号以及符号所在的内存地址。
+ * 模块可以使用如下宏导出符号到内核符号表中，导出的符号可以被其他模块使用，只需要
+ * 使用前声明一下就可以。
+ * EXPORT_SYMBOL(<symbolName>)
+ * EXPORT_SYMBOL_GPL(<symbolName>)  // 只适用于包含GPL许可权的模块
+ */
 EXPORT_SYMBOL(demo1_export_test);
 
 static int m_chrdev_open(struct inode *inode, struct file *file);
@@ -129,7 +135,7 @@ static long m_chrdev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 static ssize_t m_chrdev_read(struct file *file, char __user *buf, size_t count, loff_t *offset);
 static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t count, loff_t *offset);
 
-// initialize file_operations
+/* initialize file_operations */
 static const struct file_operations m_chrdev_fops = {
     .owner      = THIS_MODULE,
     .open       = m_chrdev_open,
@@ -139,20 +145,20 @@ static const struct file_operations m_chrdev_fops = {
     .write       = m_chrdev_write
 };
 
-// device data holder, this structure may be extended to hold additional data
+/* device data holder, this structure may be extended to hold additional data */
 struct m_chr_device_data {
     struct cdev cdev;
 };
 
-// global storage for device Major number
-// 多个设备可以对应一个驱动
+/* global storage for device Major number */
+/* 多个设备可以对应一个驱动 */
 static int dev_major = 0;
 
-// sysfs class structure
-// 多个设备对应一个驱动，自然也对应同一个class
+/* sysfs class structure */
+/* 多个设备对应一个驱动，自然也对应同一个class */
 static struct class *m_chrdev_class = NULL;
 
-// array of m_chr_device_data for
+/* array of m_chr_device_data for */
 static struct m_chr_device_data m_chrdev_data[MAX_DEV];
 
 static int m_chrdev_uevent(const struct device *dev, struct kobj_uevent_env *env)
@@ -223,61 +229,67 @@ static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t 
     return count;
 }
 
-// 模块加载函数
-// 在Linux中，所有表示为__init 的函数如果直接编译进内核，在连接时都会放在.init.text
-// 这个区段内
-// 所有的__init 函数在在区段.initcall.init中还保留了一份函数指针，在初始化时，内核会
-// 通过这些函数指针调用这些__init函数并在初始化完成后释放init区段（包括.init.text、
-// .initcall.init等）的内存
-// 除了函数以外，数据也可以被定义为__initdata，对于知识初始化阶段需要的数据，内核
-// 在初始化完后，也可以释放他们占用的内存
-// #define __init		__section(".init.text")
-// #define __initdata	__section(".init.data")
-// #define __exitdata	__section(".exit.data")
-// #define __exit_call	__used __section(".exitcall.exit")
-//
-// 在Linux内核中，可以使用request_module(const char *fmt, ...)函数加载模块内核模块
+/*
+ * 模块加载函数
+ * 在Linux中，所有表示为__init 的函数如果直接编译进内核，在连接时都会放在.init.text
+ * 这个区段内
+ * 所有的__init 函数在在区段.initcall.init中还保留了一份函数指针，在初始化时，内核会
+ * 通过这些函数指针调用这些__init函数并在初始化完成后释放init区段（包括.init.text、
+ * .initcall.init等）的内存
+ * 除了函数以外，数据也可以被定义为__initdata，对于知识初始化阶段需要的数据，内核
+ * 在初始化完后，也可以释放他们占用的内存
+ * #define __init		__section(".init.text")
+ * #define __initdata	__section(".init.data")
+ * #define __exitdata	__section(".exit.data")
+ * #define __exit_call	__used __section(".exitcall.exit")
+ *
+ * 在Linux内核中，可以使用request_module(const char *fmt, ...)函数加载模块内核模块
+ */
 static int __init m_chr_init(void)
 {
     int err, idx;
     dev_t devno;
 
-    // 可以使用 cat /dev/kmsg 实时查看打印
+    /* 可以使用 cat /dev/kmsg 实时查看打印 */
     printk(KERN_INFO "module %s init desc:%s\n", __func__, init_desc);
 
     printk(KERN_INFO "git version:%s\n", DEMO_GIT_VERSION);
 
-    // Dynamically apply for device number
+    /* Dynamically apply for device number */
     err = alloc_chrdev_region(&devno, 0, MAX_DEV, "m_chrdev");
 
-    // 注意这里设备号会作为/dev中设备节点和驱动的一个纽带
-    // 设备初始化、注册需要用到设备号
-    // 创建设备节点也需要用到设备号
+    /*
+     * 注意这里设备号会作为/dev中设备节点和驱动的一个纽带
+     * 设备初始化、注册需要用到设备号
+     * 创建设备节点也需要用到设备号
+     */
     dev_major = MAJOR(devno);
 
-    // create sysfs class
-    // 创建设备节点的时候也用到了class，因此在/sys/class/m_chrdev_cls下可以看到
-    // 链接到设备的软链接
+    /*
+     * create sysfs class
+     * 创建设备节点的时候也用到了class，因此在/sys/class/m_chrdev_cls下可以看到
+     * 链接到设备的软链接
+     */
     m_chrdev_class = class_create("m_chrdev_cls");
     m_chrdev_class->dev_uevent = m_chrdev_uevent;
 
-    // Create necessary number of the devices
+    /* Create necessary number of the devices */
     for (idx = 0; idx < MAX_DEV; idx++) {
-        // init new device
+        /* init new device */
         cdev_init(&m_chrdev_data[idx].cdev, &m_chrdev_fops);
         m_chrdev_data[idx].cdev.owner = THIS_MODULE;
 
-        // add device to the system where "idx" is a Minor number of the new device
+        /* add device to the system where "idx" is a Minor number of the new device */
         cdev_add(&m_chrdev_data[idx].cdev, MKDEV(dev_major, idx), 1);
 
-        // create device node /dev/m_chrdev_x where "x" is "idx", equal to the Minor number
+        /* create device node /dev/m_chrdev_x where "x" is "idx", equal to the Minor number */
         device_create(m_chrdev_class, NULL, MKDEV(dev_major, idx), NULL, "m_chrdev_%d", idx);
     }
 
     return 0;
 }
 
-// 模块卸载函数
+/* 模块卸载函数 */
 static void __exit m_chr_exit(void)
 {
     int idx;
@@ -299,15 +311,19 @@ module_init(m_chr_init);
 module_exit(m_chr_exit);
 
 
-// 内核模块领域可接受的LICENSE包括 “GPL”、“GPL v2”、“GPL and additional rights”、
-// “Dual BSD/GPL”、“Dual MPL/GPL”和“Proprietary”（关于模块是否可采用非GPL许可权，
-// 如 Proprietary，这个在学术界是有争议的）
-// 大多数情况下内核模块应该遵守GPL兼容许可权。Linux内核模块最常见的是使用GPL v2
-MODULE_LICENSE("GPL v2");                       // 描述模块的许可证
-// MODULE_xxx这种宏作用是用来添加模块描述信息（可选）
-MODULE_AUTHOR("Lhj <872648180@qq.com>");        // 描述模块的作者
-MODULE_DESCRIPTION("base demo for learning");   // 描述模块的介绍信息
-MODULE_ALIAS("base demo");                      // 描述模块的别名信息
-// 设置内核模块版本，可以通过modinfo kDemo.ko查看
-// 如果不使用MODULE_VERSION设置模块信息，modinfo会看不到 version 信息
+/*
+ * 内核模块领域可接受的LICENSE包括 “GPL”、“GPL v2”、“GPL and additional rights”、
+ * “Dual BSD/GPL”、“Dual MPL/GPL”和“Proprietary”（关于模块是否可采用非GPL许可权，
+ * 如 Proprietary，这个在学术界是有争议的）
+ * 大多数情况下内核模块应该遵守GPL兼容许可权。Linux内核模块最常见的是使用GPL v2
+ */
+MODULE_LICENSE("GPL v2");                       /* 描述模块的许可证 */
+/* MODULE_xxx这种宏作用是用来添加模块描述信息（可选） */
+MODULE_AUTHOR("Lhj <872648180@qq.com>");        /* 描述模块的作者 */
+MODULE_DESCRIPTION("base demo for learning");   /* 描述模块的介绍信息 */
+MODULE_ALIAS("base demo");                      /* 描述模块的别名信息 */
+/*
+ * 设置内核模块版本，可以通过modinfo kDemo.ko查看
+ * 如果不使用MODULE_VERSION设置模块信息，modinfo会看不到 version 信息
+ */
 MODULE_VERSION(DEMO_GIT_VERSION);

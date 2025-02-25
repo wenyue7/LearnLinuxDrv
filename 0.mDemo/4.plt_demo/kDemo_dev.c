@@ -39,8 +39,8 @@ static void __exit m_pltdev_exit(void)
 }
 module_exit(m_pltdev_exit);
 
-MODULE_LICENSE("GPL v2");                       // 描述模块的许可证
-MODULE_AUTHOR("Lhj <872648180@qq.com>");        // 描述模块的作者
-MODULE_DESCRIPTION("base demo for learning");   // 描述模块的介绍信息
-MODULE_ALIAS("plt dev");                      // 描述模块的别名信息
+MODULE_LICENSE("GPL v2");                       /* 描述模块的许可证 */
+MODULE_AUTHOR("Lhj <872648180@qq.com>");        /* 描述模块的作者 */
+MODULE_DESCRIPTION("base demo for learning");   /* 描述模块的介绍信息 */
+MODULE_ALIAS("plt dev");                        /* 描述模块的别名信息 */
 MODULE_VERSION(DEMO_GIT_VERSION);
