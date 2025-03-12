@@ -5,6 +5,28 @@
     > Created Time: Fri Oct 13 16:02:51 2023
  ************************************************************************/
 
+/*
+ *
+ * 用例介绍:
+ *  计数信号量（semaphore）：限制多个线程访问共享资源的数量。
+ *  二值信号量（binary semaphore）：只允许一个线程访问资源。
+ *  互斥量（mutex）：保护关键区，保证同一时刻只有一个线程访问资源。
+ *  读写信号量（rw_semaphore）：允许多个读者并发访问，但写者必须独占。
+ *  RCU（Read-Copy Update）：优化读多写少的场景，读者不会阻塞。
+ *
+ * 代码解析：
+ *  计数信号量：sema_init(&sem, 2); 允许最多 2 个线程同时访问资源。
+ *  二值信号量：类似于互斥量，只允许 1 个线程访问。
+ *  互斥量：使用 mutex_lock() 和 mutex_unlock() 确保临界区互斥访问。
+ *  读写信号量：
+ *   down_read() 允许多个读者访问。
+ *   down_write() 让写者独占资源。
+ *  RCU 机制：
+ *   读者使用 rcu_read_lock() 读取数据。
+ *   写者创建新数据，并用 rcu_assign_pointer() 替换旧数据。
+ *   synchronize_rcu() 确保旧数据不会被读者使用后才释放。
+ */
+
 
 #include <linux/init.h>         /* __init   __exit */
 #include <linux/module.h>       /* module_init  module_exit */
@@ -14,6 +36,13 @@
 /* file opt */
 #include <linux/uaccess.h>
 #include <linux/fs.h>
+
+#include <linux/semaphore.h>
+#include <linux/mutex.h>
+#include <linux/rwsem.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
+#include <linux/rcupdate.h>
 
 
 #define MAX_DEV 2
@@ -125,31 +154,122 @@ static ssize_t m_chrdev_write(struct file *file, const char __user *buf, size_t 
     return count;
 }
 
-/* 定义一个读写信号量 */
-static DECLARE_RWSEM(rw_sem);
+// 计数信号量
+static struct semaphore sem;
+// 二值信号量
+static struct semaphore bin_sem;
+// 互斥量
+static struct mutex my_mutex;
+// 读写信号量
+static struct rw_semaphore rwsem;
+// RCU 保护的数据结构
+struct my_data {
+    int value;
+    struct rcu_head rcu;
+};
+static struct my_data *rcu_ptr = NULL;
 
-/* 共享的整数资源 */
-static int shared_resource = 0;
 
-/* 一个简单的读者函数 */
-static void reader(void)
+
+// 计数信号量线程
+static int semaphore_thread(void *arg)
 {
-    down_read(&rw_sem); /* 获取读锁 */
-    printk(KERN_INFO "Reader: shared_resource = %d\n", shared_resource);
-    /* 在这里对shared_resource进行只读操作 */
-    up_read(&rw_sem); /* 释放读锁 */
+    while (!kthread_should_stop()) {
+        down(&sem);
+        pr_info("Semaphore Thread: Accessing resource\n");
+        msleep(500);
+        up(&sem);
+        msleep(1000);
+    }
+    return 0;
 }
 
-/* 一个简单的写者函数 */
-static void writer(int value)
+// 二值信号量线程
+static int binary_semaphore_thread(void *arg)
 {
-    down_write(&rw_sem); /* 获取写锁 */
-    /* 在这里对shared_resource进行写操作 */
-    shared_resource = value;
-    printk(KERN_INFO "Writer: shared_resource set to %d\n", shared_resource);
-    up_write(&rw_sem); /* 释放写锁 */
+    while (!kthread_should_stop()) {
+        down(&bin_sem);
+        pr_info("Binary Semaphore Thread: Exclusive access\n");
+        msleep(500);
+        up(&bin_sem);
+        msleep(1000);
+    }
+    return 0;
 }
 
+// 互斥量线程
+static int mutex_thread(void *arg)
+{
+    while (!kthread_should_stop()) {
+        mutex_lock(&my_mutex);
+        pr_info("Mutex Thread: Critical Section\n");
+        msleep(500);
+        mutex_unlock(&my_mutex);
+        msleep(1000);
+    }
+    return 0;
+}
+
+// 读者线程
+static int reader_thread(void *arg)
+{
+    while (!kthread_should_stop()) {
+        down_read(&rwsem);
+        pr_info("Reader Thread: Reading data\n");
+        msleep(300);
+        up_read(&rwsem);
+        msleep(800);
+    }
+    return 0;
+}
+
+// 写者线程
+static int writer_thread(void *arg)
+{
+    while (!kthread_should_stop()) {
+        down_write(&rwsem);
+        pr_info("Writer Thread: Writing data\n");
+        msleep(500);
+        up_write(&rwsem);
+        msleep(1200);
+    }
+    return 0;
+}
+
+// RCU 读者线程
+static int rcu_reader_thread(void *arg)
+{
+    while (!kthread_should_stop()) {
+        rcu_read_lock();
+        struct my_data *data = rcu_dereference(rcu_ptr);
+        if (data)
+            pr_info("RCU Reader Thread: Reading value %d\n", data->value);
+        rcu_read_unlock();
+        msleep(700);
+    }
+    return 0;
+}
+
+// RCU 写者线程
+static int rcu_writer_thread(void *arg)
+{
+    while (!kthread_should_stop()) {
+        struct my_data *new_data = kmalloc(sizeof(struct my_data), GFP_KERNEL);
+        if (!new_data)
+            continue;
+        new_data->value = get_random_u32() % 100;
+        rcu_assign_pointer(rcu_ptr, new_data);
+        synchronize_rcu();
+        pr_info("RCU Writer Thread: Updated value to %d\n", new_data->value);
+        msleep(1500);
+    }
+    return 0;
+}
+
+// 线程指针
+static struct task_struct *sem_thread, *bin_sem_thread, *mutex_thread_task;
+static struct task_struct *reader_thread_task, *writer_thread_task;
+static struct task_struct *rcu_reader_thread_task, *rcu_writer_thread_task;
 
 static int __init m_chr_init(void)
 {
@@ -192,10 +312,23 @@ static int __init m_chr_init(void)
         device_create(m_chrdev_class, NULL, MKDEV(dev_major, idx), NULL, "m_chrdev_%d", idx);
     }
 
-    /* 模拟读者和写者 */
-    reader(); /* 读取共享资源 */
-    writer(42); /* 写入共享资源 */
-    reader(); /* 再次读取共享资源以验证更改 */
+    pr_info("Initializing Synchronization Module\n");
+
+    sema_init(&sem, 2);         // 计数信号量，最多 2 个线程访问
+    sema_init(&bin_sem, 1);     // 二值信号量，最多 1 个线程访问
+    mutex_init(&my_mutex);      // 初始化互斥量
+    init_rwsem(&rwsem);         // 初始化读写信号量
+    rcu_ptr = kmalloc(sizeof(struct my_data), GFP_KERNEL);
+    if (rcu_ptr)
+        rcu_ptr->value = 0;
+
+    sem_thread = kthread_run(semaphore_thread, NULL, "sem_thread");
+    bin_sem_thread = kthread_run(binary_semaphore_thread, NULL, "bin_sem_thread");
+    mutex_thread_task = kthread_run(mutex_thread, NULL, "mutex_thread");
+    reader_thread_task = kthread_run(reader_thread, NULL, "reader_thread");
+    writer_thread_task = kthread_run(writer_thread, NULL, "writer_thread");
+    rcu_reader_thread_task = kthread_run(rcu_reader_thread, NULL, "rcu_reader_thread");
+    rcu_writer_thread_task = kthread_run(rcu_writer_thread, NULL, "rcu_writer_thread");
 
     return 0;
 }
@@ -206,6 +339,19 @@ static void __exit m_chr_exit(void)
     int idx;
 
     printk(KERN_INFO "module %s exit desc:%s\n", __func__, exit_desc);
+
+    pr_info("Exiting Synchronization Module\n");
+
+    if (sem_thread) kthread_stop(sem_thread);
+    if (bin_sem_thread) kthread_stop(bin_sem_thread);
+    if (mutex_thread_task) kthread_stop(mutex_thread_task);
+    if (reader_thread_task) kthread_stop(reader_thread_task);
+    if (writer_thread_task) kthread_stop(writer_thread_task);
+    if (rcu_reader_thread_task) kthread_stop(rcu_reader_thread_task);
+    if (rcu_writer_thread_task) kthread_stop(rcu_writer_thread_task);
+
+    synchronize_rcu();
+    kfree(rcu_ptr);
 
     for (idx = 0; idx < MAX_DEV; idx++) {
         device_destroy(m_chrdev_class, MKDEV(dev_major, idx));
