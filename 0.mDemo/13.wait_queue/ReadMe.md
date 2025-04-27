@@ -55,3 +55,41 @@ wait queue 等待队列
 
 等待队列机制是一种有效的同步手段，特别是在需要处理硬件事件或者需要响应信号的情况下。
 它允许进程在等待时释放CPU，从而提高系统的整体性能。
+
+
+
+## wait 函数对比
+
+以下是包含 `wait_event_interruptible`、`wait_event_timeout` 和 `wait_event_interruptible_timeout` 三个关键函数的对比表格
+
+---
+
+### Linux 内核等待队列函数对比
+
+| 特性                     | `wait_event_interruptible`         | `wait_event_timeout`               | `wait_event_interruptible_timeout`      |
+|--------------------------|------------------------------------|------------------------------------|-----------------------------------------|
+| **睡眠状态**             | `TASK_INTERRUPTIBLE`（可中断）     | `TASK_UNINTERRUPTIBLE`（不可中断） | `TASK_INTERRUPTIBLE`（可中断）          |
+| **唤醒条件**             | 1. `condition` 为真<br>2. 信号中断 | 1. `condition` 为真<br>2. 超时到期 | 1. `condition` 为真<br>2. 信号中断<br>3. 超时到期 |
+| **返回值**               | - `0`：条件满足<br>- `-ERESTARTSYS`：被信号中断 | - `>0`：剩余时间（条件满足）<br>- `0`：超时 | - `>0`：剩余时间（条件满足）<br>- `0`：超时<br>- `-ERESTARTSYS`：被信号中断 |
+| **超时支持**             | ❌ 不支持                          | ✅ 支持（固定超时）                | ✅ 支持（固定超时 + 可中断）            |
+| **典型用途**             | 阻塞等待（如驱动读取数据）         | 硬件超时检测、任务调度             | 需超时且需响应信号的场景（如用户态交互） |
+| **参数示例**             | `wait_event_interruptible(wq, flag)` | `wait_event_timeout(wq, flag, timeout)` | `wait_event_interruptible_timeout(wq, flag, timeout)` |
+
+---
+
+### 关键说明：
+1. **超时参数**：
+   - `timeout` 以 `jiffies` 为单位，可用 `msecs_to_jiffies(ms)` 转换毫秒（例如 `msecs_to_jiffies(100)` 表示 100 毫秒）。
+2. **信号中断**：
+   - `_interruptible` 后缀的函数在收到信号（如 `SIGKILL`）时会立即返回 `-ERESTARTSYS`，需在调用处处理错误（例如重启操作或返回用户态）。
+3. **竞态条件**：
+   - 在调用这些宏前，通常需要结合锁（如 `spin_lock`）保护 `condition` 的修改和检查，避免并发问题。
+
+---
+
+### 如何选择？
+- **需要无限等待 + 响应信号** → `wait_event_interruptible`
+- **需要超时 + 不关心信号** → `wait_event_timeout`
+- **需要超时 + 响应信号** → `wait_event_interruptible_timeout`
+
+如果有其他具体场景的疑问，可以进一步讨论！
