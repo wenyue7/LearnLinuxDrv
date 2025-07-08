@@ -1,0 +1,106 @@
+src := $(srctree)/$(obj)
+
+# Init all relevant variables used in kbuild files so
+# 1) they have correct type
+# 2) they do not inherit any value from the environment
+obj-y :=
+obj-m :=
+lib-y :=
+lib-m :=
+always-y :=
+always-m :=
+targets :=
+subdir-y :=
+subdir-m :=
+asflags-y  :=
+ccflags-y  :=
+rustflags-y :=
+cppflags-y :=
+ldflags-y  :=
+
+subdir-asflags-y :=
+subdir-ccflags-y :=
+
+# Read auto.conf if it exists, otherwise ignore
+-include $(objtree)/include/config/auto.conf
+
+include $(srctree)/scripts/Kbuild.include
+$(info kbuild-file $(kbuild-file))
+include $(kbuild-file)
+# include $(srctree)/scripts/Makefile.lib
+
+# When an object is listed to be built compiled-in and modular,
+# only build the compiled-in version
+obj-m := $(filter-out $(obj-y),$(obj-m))
+
+# Libraries are always collected in one lib file.
+# Filter out objects already built-in
+lib-y := $(filter-out $(obj-y), $(sort $(lib-y) $(lib-m)))
+
+# Subdirectories we need to descend into
+subdir-ym := $(sort $(subdir-y) $(subdir-m) \
+			$(patsubst %/,%, $(filter %/, $(obj-y) $(obj-m))))
+
+# Expand $(foo-objs) $(foo-y) etc. by replacing their individuals
+suffix-search = $(strip $(foreach s, $3, $($(1:%$(strip $2)=%$s))))
+# List composite targets that are constructed by combining other targets
+multi-search = $(sort $(foreach m, $1, $(if $(call suffix-search, $m, $2, $3 -), $m)))
+# List primitive targets that are compiled from source files
+real-search = $(foreach m, $1, $(if $(call suffix-search, $m, $2, $3 -), $(call suffix-search, $m, $2, $3), $m))
+
+# If $(foo-objs), $(foo-y), $(foo-m), or $(foo-) exists, foo.o is a composite object
+multi-obj-y := $(call multi-search, $(obj-y), .o, -objs -y)
+multi-obj-m := $(call multi-search, $(obj-m), .o, -objs -y -m)
+multi-obj-ym := $(multi-obj-y) $(multi-obj-m)
+
+# Replace multi-part objects by their individual parts,
+# including built-in.a from subdirectories
+real-obj-y := $(call real-search, $(obj-y), .o, -objs -y)
+real-obj-m := $(call real-search, $(obj-m), .o, -objs -y -m)
+
+always-y += $(always-m)
+
+# Add subdir path
+
+ifneq ($(obj),.)
+extra-y		:= $(addprefix $(obj)/, $(extra-y))
+always-y	:= $(addprefix $(obj)/, $(always-y))
+targets		:= $(addprefix $(obj)/, $(targets))
+obj-m		:= $(addprefix $(obj)/, $(obj-m))
+lib-y		:= $(addprefix $(obj)/, $(lib-y))
+real-obj-y	:= $(addprefix $(obj)/, $(real-obj-y))
+real-obj-m	:= $(addprefix $(obj)/, $(real-obj-m))
+multi-obj-m	:= $(addprefix $(obj)/, $(multi-obj-m))
+subdir-ym	:= $(addprefix $(obj)/, $(subdir-ym))
+endif
+
+# hostprogs-always-y += foo
+# ... is a shorthand for
+# hostprogs += foo
+# always-y  += foo
+hostprogs += $(hostprogs-always-y) $(hostprogs-always-m)
+always-y += $(hostprogs-always-y) $(hostprogs-always-m)
+
+# userprogs-always-y is likewise.
+userprogs += $(userprogs-always-y) $(userprogs-always-m)
+always-y += $(userprogs-always-y) $(userprogs-always-m)
+
+
+$(info obj-m     --> $(obj-m))
+$(info obj-y     --> $(obj-y))
+$(info subdir-ym --> $(subdir-ym))
+
+
+all: $(subdir-ym)
+
+$(subdir-ym): FORCE
+	echo "dir $@"
+	$(Q)$(MAKE) $(build)=$@
+
+
+# FORCE 没有依赖文件且没有命令部分，由于它没有命令生成FORCE，所以每次都会被更新。
+# 所以它的作用就是：当FORCE作为依赖时，就导致依赖列表中每次都有FORCE依赖被更新，
+# 导致目标每次被重新编译生成。
+PHONY += FORCE
+FORCE:
+

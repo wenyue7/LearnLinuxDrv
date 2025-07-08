@@ -1,0 +1,6 @@
+obj-y += init/
+obj-y += usr/
+obj-y += kernel/
+obj-y += mm/
+obj-y += fs/
+obj-y += drivers/
