@@ -705,6 +705,360 @@ vmlinux: vmlinux.o $(KBUILD_LDS) modpost
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vmlinux
 ```
 
+## 内核编译文件说明
+
+在 Linux 内核编译过程中，会生成很多中间文件用于辅助构建和记录构建信息。以下是一些
+常见的内核编译中间文件及其含义说明：
+
+### 常见编译生成文件说明
+
+| 文件名           | 含义                                                                                      |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| `*.o`            | 编译后的目标文件（object file），由源代码 `.c` 或 `.S` 文件生成。                         |
+| `*.ko`           | 内核模块（kernel object），可以使用 `insmod` 加载的模块。                                 |
+| `*.cmd`          | 保存了构建该目标的完整命令行（由 Makefile 自动生成），Make 会根据它判断是否需要重新编译。 |
+| `*.mod.c`        | 为内核模块自动生成的源码文件，包含模块初始化、许可证信息等。                              |
+| `*.mod.o`        | `.mod.c` 编译生成的目标文件，是模块构建的一部分。                                         |
+| `*.mod`          | 模块注册信息，列出一个模块依赖的其他模块名，主要供 `depmod` 使用。                        |
+| `.tmp_versions/` | 暂存每个模块的 `.mod` 文件的目录，用于构建依赖检查。                                      |
+| `*.symversions`  | 包含模块导出的符号及其校验信息，支持模块间版本匹配检查。                                  |
+| `*.order`        | 描述模块的加载顺序，`modules.order` 是所有模块按顺序排列的列表（用于生成最终模块包）。    |
+| `Module.symvers` | 汇总所有模块导出的符号（用于 symbol versioning），在模块之间共享接口时非常重要。          |
+| `built-in.o`     | 内核内建模块(CONFIG_XXX=y)才有，当前目录下所有编译进内核的对象文件合并后的目标文件        |
+| `built-in.a`     | 内核内建模块(CONFIG_XXX=y)才有，所有模块以静态库方式打包（供链接 vmlinux）                |
+
+built-in.x 实际上作用的是当前目录以及当前目录一下的内容，例如：
+```text
+dir1 +-- built-in.x
+     |
+     +-- dir2 +-- foo.c
+     |        |
+     |        +-- foo2.c
+     |
+     +-- dir3 +-- foo3.c
+              |
+              +-- foo4.c
+
+这里 built-in.x 将 dir2、dir3 中的内容进行统一汇总
+```
+
+常见隐藏文件：
+
+| 文件名               | 含义                                             |
+| -------------------- | ------------------------------------------------ |
+| `.hello.o.cmd`       | hello.o 的构建命令及依赖列表                     |
+| `.depend` / `.tmp_*` | 依赖临时文件，用于判断是否需要重新构建           |
+| `.version`           | 内核版本号，每次 `make` 增加（用于区分不同编译） |
+| `.config`            | 内核配置文件（用于决定哪些模块内建/模块化）      |
+| `.tmp_versions/`     | 存放所有模块的 `.mod` 文件（模块状态信息）       |
+
+`.tmp_versions/` 详细说明：
+* 每个模块编译后，会生成 `<module>.mod` 放入这里
+* 内容是类似于 `modinfo` 结构的数据
+* 最终会被用于生成 `modules.dep`, `modules.symbols` 等
+
+`.version` 文件举例：
+* 内容是一个数字（如 `5`）
+* 每次运行 `make`，版本号 +1
+* 用于给 `vmlinux` 等加版本标识，例如 `vmlinux-5`
+
+
+### 内核模块构建全过程解析（基于 kbuild 系统）
+
+以一个简单模块 `hello.c` 为例，搭配如下的 `Makefile`：
+
+```makefile
+obj-m := hello.o
+```
+
+执行：
+
+```bash
+make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+```
+
+#### 1. 预处理/依赖处理阶段
+
+`hello.c` → `hello.o`
+
+kbuild 首先会为 `hello.c` 生成 `.o` 文件：
+
+```bash
+gcc -D__KERNEL__ -DMODULE ... -c hello.c -o hello.o
+```
+
+生成文件：
+
+* `hello.o`：目标文件
+* `hello.cmd`：保存这条构建命令，供下一次 make 判断是否重新编译
+
+> `hello.cmd` 的作用是记录 **上次构建的详细命令和参数**。下次 `make` 会读取 `.cmd`
+> 与当前参数比对，决定是否重新编译。
+
+
+#### 2. 生成模块元信息
+
+生成 `hello.mod.c`
+
+kbuild 自动生成 `hello.mod.c`，它包含模块结构描述：
+
+```c
+struct module __this_module = {
+    .name = "hello",
+    .init = init_module,
+    .exit = cleanup_module,
+};
+```
+
+然后编译它：
+
+```bash
+gcc -c hello.mod.c -o hello.mod.o
+```
+
+生成文件：
+
+* `hello.mod.o`
+* `hello.mod.c`
+* `hello.mod.o.cmd`
+
+
+#### 3. 链接阶段
+
+链接 `hello.o` 和 `hello.mod.o`：
+
+```bash
+ld -r hello.o hello.mod.o -o hello.ko
+```
+
+生成：
+
+* `hello.ko`：最终的内核模块
+
+
+#### 4. 生成依赖与版本信息
+
+* **`hello.symversions`**：包含本模块导出的符号及版本信息（供符号版本检查使用）
+* **`.tmp_versions/hello.mod`**：中间记录模块状态的文件
+
+
+#### 5. 模块顺序信息
+
+* **`hello.order`**：模块在构建时的顺序（最终会被追加到 `modules.order`）
+* **`modules.order`**：构建目录下所有模块的有序列表
+
+
+#### 6. 导出符号汇总
+
+* **`Module.symvers`**：汇总本次编译过程中所有导出的符号（提供给其他模块使用）
+
+如果模块使用了 `EXPORT_SYMBOL()`，则该符号和其校验信息将写入此文件。
+
+
+#### 构建过程总结流程图
+
+```text
+hello.c ─────┐
+             │     (GCC 编译)
+             └──> hello.o ─────┐
+                               │
+hello.mod.c ──> hello.mod.o ───┼───(LD 链接)───> hello.ko
+                               │
+        (符号导出/依赖分析)    ↓
+        ┌──────────────┐
+        │ hello.symversions
+        │ .tmp_versions/
+        │ hello.order
+        └──────────────┘
+```
+
+#### 额外说明：Makefile 指令解释
+
+* `obj-m := hello.o`
+  告诉 kbuild：`hello.o` 是一个模块（模块会被构建为 `hello.ko`）
+
+* `M=$(pwd)`
+  指定编译当前目录中的模块
+
+* `-C /lib/modules/$(uname -r)/build`
+  切换到当前系统内核的源码构建目录（通常是 `/usr/src/linux-*` 的符号链接）
+
+
+### 符号版本机制：`EXPORT_SYMBOL` 与 `Module.symvers`
+
+#### 背景
+
+模块之间可能会互相调用函数/变量（例如网络协议栈使用驱动层函数）。为了确保模块与
+内核或其他模块之间的 **接口兼容性**，内核使用符号版本机制进行符号校验。
+
+#### 常见文件与宏
+
+| 内容                      | 作用                               |
+| ------------------------- | ---------------------------------- |
+| `EXPORT_SYMBOL(name)`     | 向其他模块导出符号（函数或变量）   |
+| `EXPORT_SYMBOL_GPL(name)` | 仅对 GPL 模块导出符号              |
+| `Module.symvers`          | 记录导出的符号名及其校验值（CRC）  |
+
+
+#### 示例：
+
+```c
+// foo.c
+int foo_add(int x, int y) {
+    return x + y;
+}
+EXPORT_SYMBOL(foo_add);
+```
+
+生成的 `Module.symvers` 中将包含：
+
+```
+0xA1B2C3D4  foo_add  /path/to/foo.o
+```
+
+#### 使用意义：
+
+* 编译 bar.ko 使用 `foo_add()` 时，编译器检查符号版本一致性。
+* 如果符号不匹配（例如接口变了），编译或加载时会报错，避免运行时崩溃。
+
+
+### 内核内建模块 vs 外部模块的编译差异
+
+| 比较项         | 内建模块                                     | 外部模块（Out-of-tree）          |
+| -------------- | -------------------------------------------- | -------------------------------- |
+| 编译方式       | `make menuconfig` + `make`                   | `make -C /lib/modules/... M=...` |
+| 配置方式       | 配置进内核 `.config` 中（如 `CONFIG_FOO=y`） | 使用 `obj-m += xxx.o` 指定       |
+| 是否进 vmlinux | 是（被链接进内核映像）                       | 否（独立 `*.ko`）                |
+| 动态加载       | 否（内核启动时即加载）                       | 是（运行时可 insmod/modprobe）   |
+
+
+#### 示例：外部模块编译
+
+```bash
+make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+```
+
+编译出：
+
+* `hello.ko`（可插拔模块）
+* `Module.symvers`
+* `.mod.o`、`.cmd`、`.order` 等中间文件
+
+
+### `make modules_install` 的作用
+
+#### 命令：
+
+```bash
+sudo make modules_install
+```
+
+#### 作用：
+
+* 将所有编译出的 `.ko` 模块安装到 `/lib/modules/$(uname -r)/kernel/` 下合适位置。
+* 更新模块索引文件（供 `modprobe` 使用）：
+
+```bash
+sudo depmod -a
+```
+
+#### 安装后的文件结构：
+
+```
+/lib/modules/$(uname -r)/
+│
+├── kernel/
+│   ├── drivers/
+│   │   └── mydriver.ko
+│   └── ...
+├── modules.dep
+├── modules.symbols
+├── modules.order
+└── ...
+```
+
+这些文件被 `modprobe`、`insmod`、`depmod` 用来自动查找和管理模块。
+
+
+### 模块加载、卸载与运行时管理
+
+#### 加载模块方式：
+
+| 工具              | 功能                         |
+| ----------------- | ---------------------------- |
+| `insmod <mod>.ko` | 直接加载模块（不会处理依赖） |
+| `modprobe <mod>`  | 自动加载模块和依赖（推荐）   |
+
+
+#### 卸载模块：
+
+```bash
+rmmod <mod>
+```
+
+#### 运行时查看模块：
+
+```bash
+cat /proc/modules
+```
+
+输出示例：
+
+```
+hello  16384  0 - Live 0x0000000000000000
+```
+
+含义：
+
+* 模块名：`hello`
+* 大小：占用内存大小
+* 使用计数（`0` 表示无人依赖）
+* 状态（Live/Loading等）
+* 地址（加载到内核的虚拟地址）
+
+
+#### 其他工具：
+
+* `lsmod`：列出所有已加载模块（解析自 `/proc/modules`）
+* `modinfo hello.ko`：查看模块元信息（作者、版本、license 等）
+* `dmesg`：查看模块加载日志输出（如 `printk()` 打印）
+
+
+### 总结图：各种文件的角色归类
+
+```text
+               +-------------------+
+               |  源代码 (.c/.h)   |
+               +--------+----------+
+                        |
+                        ▼
+           +------------+------------+
+           |      编译生成的产物      |
+           +------------+------------+
+                        |
+        +---------------+--------------+
+        |                              |
+        ▼                              ▼
++---------------+           +-----------------------+
+|  build-in.o   |           |       xxx.ko          |
+| (内建模块)    |           |     (可加载模块)      |
++---------------+           +-----------------------+
+| xxx.cmd       |           | xxx.cmd               |
++---------------+           +-----------------------+
+| .mod.c        |           | .mod.c                |
+| xxx.mod.o     |           | xxx.mod.o             |
+| xxx.mod       |           | xxx.mod               |
++---------------+           +-----------------------+
+| Module.symvers|           | Module.symvers        |
++---------------+           +-----------------------+
+| xxx.order     |           | xxx.order             |
++---------------+           +-----------------------+
+| built-in.a    |
+| built-in.cmd  |
++---------------+
+
+依赖追踪文件：.cmd, .depend, .version, Module.symvers ...
+```
 
 
 # Tips
