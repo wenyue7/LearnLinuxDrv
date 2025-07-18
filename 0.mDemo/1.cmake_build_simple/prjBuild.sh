@@ -10,4 +10,4 @@ if [ ! -e "build" ]; then mkdir build; fi
 cd build
 
 rm -rf ./*
-cmake .. && make && sudo insmod ./m_kDemo.ko && sudo rmmod m_kDemo.ko
+cmake .. && make && sudo insmod ./build/m_kDemo.ko && sudo rmmod m_kDemo.ko
